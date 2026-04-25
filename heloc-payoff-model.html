@@ -1311,14 +1311,14 @@ function getLumpSumForMonth(lsRules, monthNum) {
 
 function monthNumToDate(startDateStr, monthOffset) {
   const [y, m] = startDateStr.split('-').map(Number);
-  const dt = new Date(y, m - 1 + monthOffset, 1);
+  const dt = new Date(y, m + monthOffset - 2, 1);  // month 1 = start month
   return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
 // Full "Month DD, YYYY" format for payoff date display
 function monthNumToFullDate(startDateStr, monthOffset) {
   const [y, m] = startDateStr.split('-').map(Number);
-  const dt = new Date(y, m - 1 + monthOffset, 1);
+  const dt = new Date(y, m + monthOffset - 2, 1);  // month 1 = start month
   return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
@@ -1822,7 +1822,8 @@ function payoffDateToMonths(startDateStr, payoffDateStr) {
   if (isNaN(end.getTime())) return null;
   const [sy, sm] = startDateStr.split('-').map(Number);
   const diff = (end.getFullYear() - sy) * 12 + (end.getMonth() - (sm - 1));
-  return diff >= 1 ? diff : null;
+  // +1 because month 1 = start month (Oct 2026 → May 2030 = 44, not 43)
+  return diff >= 0 ? diff + 1 : null;
 }
 
 // Return the first field name from the priority list that is NOT locked
