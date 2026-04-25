@@ -1431,64 +1431,298 @@ function updateSummary(schedule, params, baseline) {
 }
 
 // ════════════════════════════════════════════════
-// SECTION 8 — MAIN CALCULATE ENTRY POINT
+// SECTION 8 — BISECTION SOLVER + CALCULATE
 // ════════════════════════════════════════════════
 
-function calculate() {
-  clearError();
+// ── 8a: Bisection root-finder ────────────────────
+// Finds x in [lo, hi] where fn(x) ≈ target (within tol).
+// fn must be monotone over the interval (either direction).
+function bisect(fn, lo, hi, target, tol, maxIter) {
+  tol     = tol     ?? 0.01;
+  maxIter = maxIter ?? 200;
+  let a = lo, b = hi;
+  let fa = fn(a) - target;
+  let fb = fn(b) - target;
+  if (Math.abs(fa) <= tol) return { found: true, value: a };
+  if (Math.abs(fb) <= tol) return { found: true, value: b };
+  // Root must be bracketed — opposite signs
+  if (fa * fb > 0) return { found: false, value: null, atLo: fa + target, atHi: fb + target };
+  for (let i = 0; i < maxIter; i++) {
+    const mid = (a + b) / 2;
+    const fm  = fn(mid) - target;
+    if (Math.abs(fm) <= tol || (b - a) < 1e-10) return { found: true, value: mid };
+    if (fa * fm <= 0) { b = mid; fb = fm; }
+    else              { a = mid; fa = fm; }
+  }
+  return { found: true, value: (a + b) / 2 };
+}
 
-  const annualRate   = parseFloat(document.getElementById('interestRate').value);
-  const balance      = parseFloat(document.getElementById('debtAmount').value);
-  const minPct       = parseFloat(document.getElementById('minPaymentPct').value);
-  const baseContrib  = parseFloat(document.getElementById('addlContrib').value) || 0;
-  const startDateStr = document.getElementById('startDate').value;
+// ── 8b: Helpers ──────────────────────────────────
+// Convert "Apr 2027" or "2027-04" style string to months from startDate
+function payoffDateToMonths(startDateStr, payoffDateStr) {
+  if (!payoffDateStr) return null;
+  // Try appending " 1" to coerce "Apr 2027" into a parseable date
+  const end = new Date(payoffDateStr.trim() + ' 1');
+  if (isNaN(end.getTime())) return null;
+  const [sy, sm] = startDateStr.split('-').map(Number);
+  const diff = (end.getFullYear() - sy) * 12 + (end.getMonth() - (sm - 1));
+  return diff >= 1 ? diff : null;
+}
 
-  // Validate required fields
+// Return the first field name from the priority list that is NOT locked
+const SOLVE_PRIORITY = ['addlContrib', 'minPmt', 'rate', 'debt'];
+const PARAM_KEY = { addlContrib: 'baseContrib', minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
+const SOLVE_LABEL = {
+  addlContrib: 'Additional Monthly Contribution',
+  minPmt:      'Minimum Monthly Payment %',
+  rate:        'Annual Interest Rate',
+  debt:        'Debt Amount',
+};
+
+function getFirstFreeVar() {
+  return SOLVE_PRIORITY.find(f => !lockState[f]) || null;
+}
+
+// Write solved value back to the appropriate input field
+function applySolvedValue(field, value) {
+  const ids = { addlContrib: 'addlContrib', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
+  const el  = document.getElementById(ids[field]);
+  if (!el) return;
+  el.value = value.toFixed(field === 'minPmt' ? 4 : 2);
+  // Brief highlight to draw attention to the updated field
+  el.style.transition = 'background 0.4s';
+  el.style.background = '#d1fae5';
+  setTimeout(() => { el.style.background = ''; }, 1500);
+}
+
+// Show/clear the "✓ Solved" badge on the field that was solved for
+function showSolvedBadge(field) {
+  document.querySelectorAll('.solved-badge').forEach(el => el.remove());
+  const ids = { addlContrib: 'row-addlContrib', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
+  const row = document.getElementById(ids[field]);
+  if (!row) return;
+  const lbl = row.querySelector('.field-label');
+  if (!lbl) return;
+  const badge = document.createElement('span');
+  badge.className = 'solved-badge badge';
+  badge.style.cssText = 'background:var(--teal);margin-left:6px;';
+  badge.textContent = '✓ Solved';
+  lbl.appendChild(badge);
+}
+
+// ── 8c: Forward (no-solve) calculation ──────────
+function runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr) {
   const errs = [];
-  if (isNaN(annualRate) || annualRate <= 0) errs.push('Interest Rate is required and must be > 0.');
-  if (isNaN(balance)    || balance    <= 0) errs.push('Debt Amount is required and must be > 0.');
-  if (isNaN(minPct)     || minPct     <= 0) errs.push('Minimum Monthly Payment % is required and must be > 0.');
-  if (!startDateStr)                        errs.push('Start Date is required.');
+  if (isNaN(rate)   || rate   <= 0) errs.push('Interest Rate is required and must be > 0.');
+  if (isNaN(debt)   || debt   <= 0) errs.push('Debt Amount is required and must be > 0.');
+  if (isNaN(minPct) || minPct <= 0) errs.push('Minimum Monthly Payment % is required and must be > 0.');
   if (errs.length) { showError(errs.join('<br>')); return; }
 
-  const contribRules = readContribRules();
-  const lsRules      = readLumpSumRules();
-
   const params = {
-    balance, annualRate, minPctPerMonth: minPct,
-    baseContrib, contribRules, lsRules, startDateStr
+    balance: debt, annualRate: rate, minPctPerMonth: minPct,
+    baseContrib: addlContrib, contribRules, lsRules, startDateStr
   };
-
-  let schedule;
-  try {
-    schedule = runAmortization(params);
-  } catch(e) {
-    showError('Calculation error: ' + e.message);
-    return;
-  }
+  const schedule = runAmortization(params);
 
   if (!schedule.length) {
-    showError('No amortization schedule produced. Check that interest rate and min payment % are valid.');
+    showError('No schedule produced. Check that rate and minimum payment % are valid.');
+    return;
+  }
+  if (schedule.length >= 600 && schedule[schedule.length - 1].endBal > 0.01) {
+    showError(
+      `Warning: this loan does not pay off within 600 months. ` +
+      `The minimum payment % (${minPct}%) may be too low to exceed monthly interest ` +
+      `(${(rate/12).toFixed(3)}% / month). Increase the minimum payment % or add contributions.`
+    );
+  }
+  document.querySelectorAll('.solved-badge').forEach(el => el.remove());
+  renderResults(schedule, params);
+}
+
+// ── 8d: Bidirectional solver ─────────────────────
+function runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr) {
+  const freeVar = getFirstFreeVar();
+
+  if (!freeVar) {
+    showError(
+      'All input fields are locked — unlock at least one of: ' +
+      '<strong>Additional Contribution</strong>, <strong>Min. Payment %</strong>, ' +
+      '<strong>Interest Rate</strong>, or <strong>Debt Amount</strong> ' +
+      'so the solver has a variable to adjust.'
+    );
     return;
   }
 
-  // Check if loan never pays off (hit 600 month cap)
-  if (schedule.length >= 600 && schedule[schedule.length-1].endBal > 0.01) {
-    showError(
-      'Warning: this loan does not pay off within 600 months with current settings. ' +
-      'The minimum payment may be too low to cover monthly interest. Increase the ' +
-      'minimum payment % or add contributions.'
-    );
-    // Still render partial schedule
+  // Validate every input that is NOT being solved for
+  const errs = [];
+  if (freeVar !== 'rate' && (isNaN(rate)   || rate   <= 0)) errs.push('Interest Rate is required and must be > 0.');
+  if (freeVar !== 'debt' && (isNaN(debt)   || debt   <= 0)) errs.push('Debt Amount is required and must be > 0.');
+  if (freeVar !== 'minPmt' && (isNaN(minPct) || minPct <= 0)) errs.push('Minimum Monthly Payment % is required and must be > 0.');
+  if (errs.length) { showError(errs.join('<br>')); return; }
+
+  const paramField = PARAM_KEY[freeVar];
+  const baseParams = {
+    annualRate:     rate,
+    balance:        debt,
+    minPctPerMonth: minPct,
+    baseContrib:    addlContrib,
+    contribRules, lsRules, startDateStr
+  };
+
+  // Objective function: fn(x) → the metric we are targeting
+  const objFn = x => {
+    const s = runAmortization({ ...baseParams, [paramField]: x });
+    if (type === 'months')   return s.length;
+    if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
+  };
+
+  // Solver bounds and tolerance by free variable
+  const bounds = {
+    addlContrib: { lo: 0,      hi: (debt || 1e5) * 20, tol: 0.5  },
+    minPmt:      { lo: 0.0001, hi: 99.99,               tol: 0.0001 },
+    rate:        { lo: 0.001,  hi: 99.99,               tol: 0.001  },
+    debt:        { lo: 1,      hi: 1e8,                  tol: 1.0   },
+  };
+  const { lo, hi, tol } = bounds[freeVar];
+
+  // Pre-check: evaluate at bounds and verify target is bracketed
+  const atLo = objFn(lo);
+  const atHi = objFn(hi);
+  const rangeMin = Math.min(atLo, atHi);
+  const rangeMax = Math.max(atLo, atHi);
+
+  if (target < rangeMin || target > rangeMax) {
+    const lbl = SOLVE_LABEL[freeVar];
+    if (type === 'months') {
+      if (target < rangeMin) {
+        showError(
+          `Target payoff of <strong>${target} months</strong> is not achievable. ` +
+          `Even at maximum ${lbl}, the fastest possible payoff is <strong>${Math.round(rangeMin)} months</strong>. ` +
+          `Try reducing the Debt Amount, increasing the Interest Rate, or accepting a longer payoff period.`
+        );
+      } else {
+        showError(
+          `Target payoff of <strong>${target} months</strong> exceeds what is necessary. ` +
+          `Even with ${lbl} at its minimum, the loan pays off in <strong>${Math.round(rangeMax)} months</strong>. ` +
+          `Unlock a different field to adjust, or extend the target period.`
+        );
+      }
+    } else {
+      if (target < rangeMin) {
+        showError(
+          `Target total interest of <strong>${fmt(target)}</strong> is not achievable. ` +
+          `Even at maximum ${lbl}, the minimum achievable interest is <strong>${fmt(rangeMin)}</strong>. ` +
+          `Consider reducing the Debt Amount or targeting a higher interest amount.`
+        );
+      } else {
+        showError(
+          `Target total interest of <strong>${fmt(target)}</strong> exceeds the maximum. ` +
+          `With ${lbl} at minimum, total interest is only <strong>${fmt(rangeMax)}</strong>. ` +
+          `Unlock a different field to adjust, or increase the target interest amount.`
+        );
+      }
+    }
+    return;
   }
 
+  const result = bisect(objFn, lo, hi, target, tol, 200);
+
+  if (!result.found || result.value === null) {
+    showError(
+      'Solver could not converge on a solution. The target may fall at a discontinuity. ' +
+      'Try adjusting the target value slightly and recalculating.'
+    );
+    return;
+  }
+
+  // Write solved value back to the UI
+  applySolvedValue(freeVar, result.value);
+  showSolvedBadge(freeVar);
+
+  // Final forward pass with solved value
+  const finalParams = { ...baseParams, [paramField]: result.value };
+  const schedule    = runAmortization(finalParams);
+
+  if (!schedule.length) {
+    showError('Solver converged but produced no schedule — please verify inputs.');
+    return;
+  }
+  renderResults(schedule, finalParams);
+}
+
+// ── 8e: Shared render helper ─────────────────────
+function renderResults(schedule, params) {
   lastSchedule = schedule;
   restoreMonthlyHeaders();
   renderTable(schedule);
   renderCharts(schedule);
-
-  const baseline = runMinOnlyBaseline(balance, annualRate, minPct);
+  const baseline = runMinOnlyBaseline(params.balance, params.annualRate, params.minPctPerMonth);
   updateSummary(schedule, params, baseline);
+}
+
+// ── 8f: Main entry point (Calculate button) ──────
+function calculate() {
+  clearError();
+
+  const startDateStr = document.getElementById('startDate').value;
+  if (!startDateStr) { showError('Start Date is required.'); return; }
+
+  const rate        = parseFloat(document.getElementById('interestRate').value);
+  const debt        = parseFloat(document.getElementById('debtAmount').value);
+  const minPct      = parseFloat(document.getElementById('minPaymentPct').value);
+  const addlContrib = parseFloat(document.getElementById('addlContrib').value) || 0;
+  const contribRules = readContribRules();
+  const lsRules      = readLumpSumRules();
+
+  // Determine which output fields are locked → become solve targets
+  const targets = [];
+
+  if (lockState['totalInterest']) {
+    const v = parseFloat(document.getElementById('totalInterest').value);
+    if (isNaN(v) || v <= 0) {
+      showError('Total Interest (locked): enter a value > $0 before calculating.');
+      return;
+    }
+    targets.push({ type: 'interest', target: v });
+  }
+
+  if (lockState['payoffMonths']) {
+    const v = parseInt(document.getElementById('payoffMonths').value, 10);
+    if (isNaN(v) || v < 1) {
+      showError('Payoff Period (locked): enter a whole number ≥ 1 month before calculating.');
+      return;
+    }
+    targets.push({ type: 'months', target: v });
+  } else if (lockState['payoffDate']) {
+    const dateStr = document.getElementById('payoffDate').value;
+    const months  = payoffDateToMonths(startDateStr, dateStr);
+    if (!months) {
+      showError(
+        'Payoff Date (locked): could not parse the date. ' +
+        'Use the format shown by the model (e.g. "Apr 2027"), or lock <strong>Payoff Period (months)</strong> instead.'
+      );
+      return;
+    }
+    targets.push({ type: 'months', target: months });
+  }
+
+  // Guard: cannot solve two simultaneous constraints with one free variable
+  if (targets.length > 1) {
+    showError(
+      'Cannot simultaneously lock both <strong>Total Interest</strong> and <strong>Payoff Period</strong>. ' +
+      'These two constraints require solving two unknowns at once. ' +
+      'Unlock one of them, run the calculation, then adjust as needed.'
+    );
+    return;
+  }
+
+  if (targets.length === 0) {
+    // Pure forward calculation
+    runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr);
+  } else {
+    const { type, target } = targets[0];
+    runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr);
+  }
 }
 
 // ════════════════════════════════════════════════
