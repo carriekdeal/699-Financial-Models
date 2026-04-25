@@ -642,6 +642,21 @@
     font-weight: 600;
   }
 
+  /* ── Period separator row (Draw → Repayment) ── */
+  tr.period-separator td {
+    background: var(--navy);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 5px 12px;
+    text-align: center;
+    border: none;
+  }
+  tr.row-draw-period td { background: #fafcff; }
+  tr.row-repayment-period td { background: #fafffe; }
+
   /* ── Utility ── */
   .section-note {
     font-size: 11px;
@@ -720,19 +735,19 @@
 
         <hr class="divider">
 
-        <!-- Minimum Monthly Payment % -->
+        <!-- Minimum Monthly Payment % (repayment period) -->
         <div class="field-row" id="row-minPmt">
           <div class="field-inner">
-            <span class="field-label">Min. Monthly Payment (% of Balance)</span>
+            <span class="field-label">Repayment Period Min. Payment (% of Balance)</span>
             <div class="field-input-wrap">
               <input type="number" class="field-input has-suffix" id="minPaymentPct"
-                     placeholder="e.g. 1.5" step="0.01" min="0" max="100" value="1">
+                     placeholder="e.g. 1" step="0.01" min="0" max="100" value="1">
               <span class="field-suffix">%</span>
             </div>
           </div>
           <button class="lock-btn" id="lock-minPmt" title="Lock / Unlock" onclick="toggleLock('minPmt')">🔓</button>
         </div>
-        <p class="section-note">Minimum recalculates each month against current balance (dynamic, never static).</p>
+        <p class="section-note"><strong>Draw period (yrs 1–20):</strong> interest-only minimum. <strong>Repayment (yrs 21–40):</strong> this % of outstanding balance — recalculates each month as balance declines.</p>
 
         <hr class="divider">
 
@@ -1041,6 +1056,10 @@
 // SECTION 1 — UI STATE (lock/unlock, rules, date)
 // ════════════════════════════════════════════════
 
+const DRAW_MONTHS  = 240;   // 20-year draw period (interest-only minimum)
+const REPAY_MONTHS = 240;   // 20-year repayment period (% of balance minimum)
+const MAX_LOAN_MONTHS = DRAW_MONTHS + REPAY_MONTHS;  // 480 total
+
 const lockState = {};
 
 function toggleLock(field) {
@@ -1257,7 +1276,7 @@ function runAmortization(params) {
           contribRules, lsRules, startDateStr, maxMonths } = params;
 
   const monthlyRate = annualRate / 100 / 12;
-  const limit = maxMonths || 600;
+  const limit = maxMonths ?? MAX_LOAN_MONTHS;
   const schedule = [];
   let bal = balance;
   let cumulInterest = 0;
@@ -1266,15 +1285,21 @@ function runAmortization(params) {
   for (let n = 1; n <= limit; n++) {
     if (bal <= 0.005) break;
 
-    const startBal  = bal;
-    const interest  = round2(startBal * monthlyRate);
-    const minPmt    = round2(startBal * minPctPerMonth / 100);
-    const addl      = round2(getContribForMonth(baseContrib, contribRules, n));
-    const lumpSum   = round2(getLumpSumForMonth(lsRules, n));
+    const startBal    = bal;
+    const interest    = round2(startBal * monthlyRate);
+    const inRepayment = n > DRAW_MONTHS;
+
+    // Draw period: interest-only minimum. Repayment period: % of outstanding balance.
+    const minPmt = inRepayment
+      ? round2(startBal * minPctPerMonth / 100)
+      : interest;
+
+    const addl    = round2(getContribForMonth(baseContrib, contribRules, n));
+    const lumpSum = round2(getLumpSumForMonth(lsRules, n));
 
     // Total payment capped so we never overpay
     let totalPmt = minPmt + addl + lumpSum;
-    const maxPmt = startBal + interest;          // can't pay more than full payoff
+    const maxPmt = startBal + interest;
     if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
 
     const principal = round2(totalPmt - interest);
@@ -1298,6 +1323,7 @@ function runAmortization(params) {
       cumulInterest,
       contribChanged,
       hasLumpSum: lumpSum > 0,
+      period: inRepayment ? 'repayment' : 'draw',
     });
 
     bal = endBal;
@@ -1342,11 +1368,11 @@ function buildAnnualSummary(schedule) {
 // ════════════════════════════════════════════════
 
 function runMinOnlyBaseline(balance, annualRate, minPct) {
+  // Uses same draw/repayment structure. Naturally caps at MAX_LOAN_MONTHS (480).
   const params = {
     balance, annualRate, minPctPerMonth: minPct,
     baseContrib: 0, contribRules: [], lsRules: [],
     startDateStr: document.getElementById('startDate').value,
-    maxMonths: 1200
   };
   return runAmortization(params);
 }
@@ -1385,8 +1411,21 @@ function renderTable(schedule) {
 
 function renderMonthlyTable(schedule, tbody) {
   const frag = document.createDocumentFragment();
+  let separatorInserted = false;
+
   for (const r of schedule) {
+    // Insert period separator before first repayment row
+    if (!separatorInserted && r.period === 'repayment') {
+      separatorInserted = true;
+      const sep = document.createElement('tr');
+      sep.className = 'period-separator';
+      sep.innerHTML = `<td colspan="12">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
+      frag.appendChild(sep);
+    }
+
     const tr = document.createElement('tr');
+    // Period background
+    tr.classList.add(r.period === 'repayment' ? 'row-repayment-period' : 'row-draw-period');
     // Row highlights
     if (r.contribChanged) tr.classList.add('row-contrib-change');
     if (r.hasLumpSum)     tr.classList.add('row-lump-sum');
@@ -1394,6 +1433,9 @@ function renderMonthlyTable(schedule, tbody) {
 
     let monthLabel = `Month ${r.monthNum}`;
     const badges = [];
+    badges.push(r.period === 'draw'
+      ? '<span class="badge" style="background:#0369a1;margin-left:4px;opacity:.75">Draw</span>'
+      : '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.75">Repay</span>');
     if (r.contribChanged) badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
     if (r.hasLumpSum)     badges.push('<span class="badge" style="background:var(--blue-lt);margin-left:4px">Lump Sum</span>');
     if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
@@ -1435,8 +1477,18 @@ function renderAnnualTable(annualRows, tbody) {
     <th>End Balance</th>
     <th>Cumul. Interest</th>
   `;
+  const DRAW_YEAR = DRAW_MONTHS / 12;  // year 20
   const frag = document.createDocumentFragment();
+  let annualSepInserted = false;
   for (const r of annualRows) {
+    // Insert separator before first repayment year (year 21+)
+    if (!annualSepInserted && r.year > DRAW_YEAR) {
+      annualSepInserted = true;
+      const sep = document.createElement('tr');
+      sep.className = 'period-separator';
+      sep.innerHTML = `<td colspan="12">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
+      frag.appendChild(sep);
+    }
     const tr = document.createElement('tr');
     if (r.endBal <= 0.005) tr.classList.add('row-payoff');
     const annualHousing = round2(lastFixedObligations * r.months + r.totalMinPmt + r.totalAddl);
@@ -1607,11 +1659,13 @@ function updateSummary(schedule, params, baseline) {
   const housingStart    = round2(fixedObl + firstRow.minPmt + firstRow.addlContrib);
   const housingEnd      = round2(fixedObl + lastRow.minPmt  + lastRow.addlContrib);
 
-  // Baseline comparison
-  const baselineInterest = baseline.length ? baseline[baseline.length-1].cumulInterest : totalInterest;
-  const baselineMonths   = baseline.length;
+  // Baseline comparison (min-only: interest-only draw → % of balance repayment)
+  const baselinePaidOff  = baseline.length > 0 && baseline[baseline.length-1].endBal <= 0.01;
+  // Interest comparison: use baseline cumulative interest at the same payoff month for a fair point-in-time comparison
+  const baselineAtPayoff = baseline[Math.min(payoffMonths, baseline.length) - 1];
+  const baselineInterest = baselineAtPayoff ? baselineAtPayoff.cumulInterest : (baseline.length ? baseline[baseline.length-1].cumulInterest : totalInterest);
   const interestSaved    = round2(baselineInterest - totalInterest);
-  const monthsSaved      = baselineMonths - payoffMonths;
+  const monthsSaved      = baselinePaidOff ? (baseline.length - payoffMonths) : null;
 
   setText('m-monthlyPayment', fmt(monthlyEst));
   setText('m-minPmt',         fmt(minPmtAmt));
@@ -1621,7 +1675,9 @@ function updateSummary(schedule, params, baseline) {
   setText('m-payoffDate',     payoffDate);
   setText('m-payoffMonths',   `${payoffMonths} months`);
   setText('m-interestSaved',  interestSaved > 0 ? fmt(interestSaved) : '$0.00');
-  setText('m-timeSaved',      monthsSaved > 0   ? formatMonths(monthsSaved) : '—');
+  setText('m-timeSaved',      monthsSaved !== null && monthsSaved > 0
+    ? formatMonths(monthsSaved)
+    : baselinePaidOff ? '—' : 'N/A — min-only doesn\'t pay off in 40 yrs');
 
   // Housing range metric card
   setText('m-housingRange', fmt(housingStart) + ' → ' + fmt(housingEnd));
@@ -1762,11 +1818,12 @@ function runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, star
     showError('No schedule produced. Check that rate and minimum payment % are valid.');
     return;
   }
-  if (schedule.length >= 600 && schedule[schedule.length - 1].endBal > 0.01) {
+  if (schedule.length >= MAX_LOAN_MONTHS && schedule[schedule.length - 1].endBal > 0.01) {
     showError(
-      `Warning: this loan does not pay off within 600 months. ` +
-      `The minimum payment % (${minPct}%) may be too low to exceed monthly interest ` +
-      `(${(rate/12).toFixed(3)}% / month). Increase the minimum payment % or add contributions.`
+      `Warning: this loan does not pay off within the 40-year maximum (${MAX_LOAN_MONTHS} months). ` +
+      `The repayment period minimum payment % (${minPct}%) may be too low — ` +
+      `monthly interest is ${(rate/12).toFixed(3)}% so you need min % > ${(rate/12).toFixed(3)}% ` +
+      `to reduce principal. Increase the minimum payment % or add contributions.`
     );
   }
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
