@@ -577,6 +577,71 @@
     flex-shrink: 0;
   }
 
+  /* ── Housing-total read-only display ── */
+  .housing-total-display {
+    background: #f0f9ff;
+    border: 1.5px solid #7dd3fc;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .housing-total-display .htd-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #0369a1;
+    margin-bottom: 6px;
+  }
+  .housing-total-display .htd-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0c4a6e;
+  }
+  .housing-total-display .htd-value.placeholder { color: #94a3b8; font-size: 15px; }
+  .housing-total-display .htd-equation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    margin-top: 6px;
+    font-size: 11px;
+  }
+  .htd-chip {
+    background: #fff;
+    border: 1px solid #bae6fd;
+    border-radius: 4px;
+    padding: 2px 7px;
+    color: #0369a1;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .htd-op { color: #64748b; font-weight: 500; }
+
+  /* ── Housing range metric card ── */
+  .metric-card.housing {
+    grid-column: span 2;
+    border-color: #7dd3fc;
+    background: linear-gradient(135deg, #f0f9ff 0%, #f0f4f8 100%);
+  }
+  .metric-card.housing .metric-label { color: #0369a1; }
+  .metric-card.housing .metric-value  { color: #0c4a6e; font-size: 22px; }
+  .housing-range-sub {
+    font-size: 11px;
+    color: #0369a1;
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .housing-range-tag {
+    background: #e0f2fe;
+    border: 1px solid #bae6fd;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 600;
+  }
+
   /* ── Utility ── */
   .section-note {
     font-size: 11px;
@@ -757,6 +822,44 @@
       </div>
     </div><!-- /Lump Sum Contributions -->
 
+    <!-- ── Monthly Housing Budget ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">🏠</span> Monthly Housing Budget</div>
+      <div class="card-body">
+
+        <!-- Fixed Monthly Obligations -->
+        <div class="field-row" id="row-fixedObligations">
+          <div class="field-inner">
+            <span class="field-label">Fixed Monthly Obligations</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="number" class="field-input has-prefix" id="fixedObligations"
+                     placeholder="e.g. 2307" step="1" min="0" value="2307">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-fixedObligations" title="Lock / Unlock"
+                  onclick="toggleLock('fixedObligations')">🔓</button>
+        </div>
+        <p class="section-note">Static each month (e.g. mortgage, insurance). Does not affect HELOC solver.</p>
+
+        <!-- Total Monthly Housing Payment (calculated, read-only) -->
+        <div class="housing-total-display" id="housingTotalDisplay">
+          <div class="htd-label">Total Monthly Housing Payment</div>
+          <div class="htd-value placeholder" id="htd-value">Run a calculation to see</div>
+          <div class="htd-equation" id="htd-equation" style="display:none">
+            <span class="htd-chip" id="htd-fixed">—</span>
+            <span class="htd-op">+</span>
+            <span class="htd-chip" id="htd-min">—</span>
+            <span class="htd-op">+</span>
+            <span class="htd-chip" id="htd-addl">—</span>
+            <span class="htd-op">=</span>
+            <span class="htd-chip" style="border-color:#0369a1;background:#e0f2fe;color:#0c4a6e" id="htd-total">—</span>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /Monthly Housing Budget -->
+
     <!-- ── Calculate ── -->
     <button class="calc-btn" onclick="calculate()">
       ⚡ Calculate Payoff Model
@@ -788,6 +891,19 @@
                 <span class="breakdown-chip-value" id="m-addlContrib">—</span>
               </div>
             </div>
+          </div>
+
+          <!-- Total Monthly Housing Payment range -->
+          <div class="metric-card housing">
+            <span class="metric-label">Total Monthly Housing Payment</span>
+            <span class="metric-value placeholder" id="m-housingRange">—</span>
+            <div class="housing-range-sub" id="m-housingRangeSub" style="display:none">
+              <span class="housing-range-tag" id="m-housingStart">—</span>
+              <span style="color:var(--muted)">start → </span>
+              <span class="housing-range-tag" id="m-housingEnd">—</span>
+              <span style="color:var(--muted)">final</span>
+            </div>
+            <span class="metric-sub">Fixed + Min. HELOC + Additional</span>
           </div>
 
           <div class="metric-card warn">
@@ -903,7 +1019,7 @@
             </thead>
             <tbody id="amortBody">
               <tr>
-                <td colspan="11" class="table-placeholder">
+                <td colspan="12" class="table-placeholder">
                   Press <strong>Calculate</strong> to generate the amortization schedule.
                 </td>
               </tr>
@@ -1241,6 +1357,7 @@ function runMinOnlyBaseline(balance, annualRate, minPct) {
 
 let currentView = 'monthly';
 let lastSchedule = null;
+let lastFixedObligations = 0;
 
 function setTableView(view) {
   currentView = view;
@@ -1255,7 +1372,7 @@ function renderTable(schedule) {
   tbody.innerHTML = '';
 
   if (!schedule || schedule.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="table-placeholder">No data.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="table-placeholder">No data.</td></tr>';
     return;
   }
 
@@ -1281,6 +1398,7 @@ function renderMonthlyTable(schedule, tbody) {
     if (r.hasLumpSum)     badges.push('<span class="badge" style="background:var(--blue-lt);margin-left:4px">Lump Sum</span>');
     if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
 
+    const housingPmt = round2(lastFixedObligations + r.minPmt + r.addlContrib);
     tr.innerHTML = `
       <td>${monthLabel}${badges.join('')}</td>
       <td>${r.date}</td>
@@ -1288,6 +1406,7 @@ function renderMonthlyTable(schedule, tbody) {
       <td>${fmt(r.minPmt)}</td>
       <td>${r.addlContrib > 0 ? fmt(r.addlContrib) : '—'}</td>
       <td>${r.lumpSum > 0 ? fmt(r.lumpSum) : '—'}</td>
+      <td style="border-left:2px solid #bae6fd;font-weight:700;color:#0c4a6e">${fmt(housingPmt)}</td>
       <td><strong>${fmt(r.totalPmt)}</strong></td>
       <td>${fmt(r.principal)}</td>
       <td>${fmt(r.interest)}</td>
@@ -1309,6 +1428,7 @@ function renderAnnualTable(annualRows, tbody) {
     <th>Total Min. Pmts</th>
     <th>Total Addl.</th>
     <th>Total Lump Sums</th>
+    <th title="Fixed Obligations + Min. HELOC Payments + Additional Contributions" style="border-left:2px solid #7dd3fc">Housing Total</th>
     <th>Total Paid</th>
     <th>Total Principal</th>
     <th>Total Interest</th>
@@ -1319,6 +1439,7 @@ function renderAnnualTable(annualRows, tbody) {
   for (const r of annualRows) {
     const tr = document.createElement('tr');
     if (r.endBal <= 0.005) tr.classList.add('row-payoff');
+    const annualHousing = round2(lastFixedObligations * r.months + r.totalMinPmt + r.totalAddl);
     tr.innerHTML = `
       <td>Year ${r.year}</td>
       <td style="text-align:right">${r.months}</td>
@@ -1326,6 +1447,7 @@ function renderAnnualTable(annualRows, tbody) {
       <td>${fmt(r.totalMinPmt)}</td>
       <td>${r.totalAddl > 0 ? fmt(r.totalAddl) : '—'}</td>
       <td>${r.totalLumpSum > 0 ? fmt(r.totalLumpSum) : '—'}</td>
+      <td style="border-left:2px solid #bae6fd;font-weight:700;color:#0c4a6e">${fmt(annualHousing)}</td>
       <td><strong>${fmt(r.totalPmt)}</strong></td>
       <td>${fmt(r.totalPrincipal)}</td>
       <td>${fmt(r.totalInterest)}</td>
@@ -1347,6 +1469,7 @@ function restoreMonthlyHeaders() {
     <th>Min. Payment</th>
     <th>Addl. Contrib.</th>
     <th>Lump Sum</th>
+    <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid #7dd3fc">Housing Total</th>
     <th>Total Payment</th>
     <th>Principal</th>
     <th>Interest</th>
@@ -1474,9 +1597,15 @@ function updateSummary(schedule, params, baseline) {
 
   // First-month payment components
   const firstRow   = schedule[0];
+  const lastRow    = schedule[schedule.length - 1];
   const minPmtAmt  = firstRow.minPmt;
   const addlAmt    = firstRow.addlContrib;
   const monthlyEst = round2(minPmtAmt + addlAmt);
+
+  // Housing payment range (month 1 = highest, last month = lowest)
+  const fixedObl        = lastFixedObligations;
+  const housingStart    = round2(fixedObl + firstRow.minPmt + firstRow.addlContrib);
+  const housingEnd      = round2(fixedObl + lastRow.minPmt  + lastRow.addlContrib);
 
   // Baseline comparison
   const baselineInterest = baseline.length ? baseline[baseline.length-1].cumulInterest : totalInterest;
@@ -1494,8 +1623,30 @@ function updateSummary(schedule, params, baseline) {
   setText('m-interestSaved',  interestSaved > 0 ? fmt(interestSaved) : '$0.00');
   setText('m-timeSaved',      monthsSaved > 0   ? formatMonths(monthsSaved) : '—');
 
-  // Show the breakdown row
+  // Housing range metric card
+  setText('m-housingRange', fmt(housingStart) + ' → ' + fmt(housingEnd));
+  setText('m-housingStart',  fmt(housingStart));
+  setText('m-housingEnd',    fmt(housingEnd));
+  document.getElementById('m-housingRange').classList.remove('placeholder');
+  document.getElementById('m-housingRangeSub').style.display = '';
+
+  // Show the HELOC breakdown row
   document.getElementById('m-paymentBreakdown').classList.add('visible');
+
+  // Update left-panel housing total equation display
+  const htdEq = document.getElementById('htd-equation');
+  if (htdEq) {
+    setText('htd-fixed', fmt(fixedObl) + ' fixed');
+    setText('htd-min',   fmt(firstRow.minPmt) + ' min');
+    setText('htd-addl',  fmt(firstRow.addlContrib) + ' addl');
+    setText('htd-total', fmt(housingStart) + ' mo 1');
+    htdEq.style.display = '';
+    const htdVal = document.getElementById('htd-value');
+    if (htdVal) {
+      htdVal.textContent = fmt(housingStart) + ' → ' + fmt(housingEnd);
+      htdVal.classList.remove('placeholder');
+    }
+  }
 
   // Remove placeholder styling
   ['m-monthlyPayment','m-totalInterest','m-totalPaid','m-payoffDate','m-interestSaved','m-timeSaved']
@@ -1735,6 +1886,7 @@ function runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, 
 
 // ── 8e: Shared render helper ─────────────────────
 function renderResults(schedule, params) {
+  lastFixedObligations = parseFloat(document.getElementById('fixedObligations').value) || 0;
   lastSchedule = schedule;
   restoreMonthlyHeaders();
   renderTable(schedule);
@@ -2088,23 +2240,27 @@ function exportAmortCSV() {
   }
 
   const header = [
-    'Month','Date','Start Balance','Min Payment','Addl Contrib',
-    'Lump Sum','Total Payment','Principal','Interest','End Balance','Cumul Interest'
+    'Month','Date','Start Balance','Min Payment','Addl Contrib','Lump Sum',
+    'Housing Total (Fixed+Min+Addl)','Total Payment','Principal','Interest','End Balance','Cumul Interest'
   ];
 
-  const rows = [header, ...lastSchedule.map(r => [
-    r.monthNum,
-    r.date,
-    r.startBal.toFixed(2),
-    r.minPmt.toFixed(2),
-    r.addlContrib.toFixed(2),
-    r.lumpSum.toFixed(2),
-    r.totalPmt.toFixed(2),
-    r.principal.toFixed(2),
-    r.interest.toFixed(2),
-    r.endBal.toFixed(2),
-    r.cumulInterest.toFixed(2),
-  ])];
+  const rows = [header, ...lastSchedule.map(r => {
+    const housing = round2(lastFixedObligations + r.minPmt + r.addlContrib);
+    return [
+      r.monthNum,
+      r.date,
+      r.startBal.toFixed(2),
+      r.minPmt.toFixed(2),
+      r.addlContrib.toFixed(2),
+      r.lumpSum.toFixed(2),
+      housing.toFixed(2),
+      r.totalPmt.toFixed(2),
+      r.principal.toFixed(2),
+      r.interest.toFixed(2),
+      r.endBal.toFixed(2),
+      r.cumulInterest.toFixed(2),
+    ];
+  })];
 
   // Append annual summary as a second block
   rows.push([], ['--- ANNUAL SUMMARY ---']);
