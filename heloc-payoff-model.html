@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HELOC Payoff Model</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:     #1a2a4a;
+    --navy-mid: #243558;
+    --blue:     #2c5282;
+    --blue-lt:  #3a6fad;
+    --accent:   #2b7de9;
+    --teal:     #0d9488;
+    --amber:    #d97706;
+    --red:      #dc2626;
+    --green:    #16a34a;
+    --bg:       #f0f4f8;
+    --surface:  #ffffff;
+    --border:   #cbd5e1;
+    --text:     #1e293b;
+    --muted:    #64748b;
+    --locked-bg:#fff7ed;
+    --locked-border:#f59e0b;
+    --locked-text:#92400e;
+    --radius:   8px;
+    --shadow:   0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md:0 4px 6px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.06);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Header ── */
+  .app-header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+    color: #fff;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-md);
+  }
+  .app-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .3px;
+  }
+  .app-header .subtitle {
+    font-size: 12px;
+    opacity: .75;
+    margin-top: 2px;
+  }
+  .header-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    opacity: .9;
+  }
+  .header-date label { font-weight: 600; }
+  .header-date input[type="date"] {
+    padding: 4px 8px;
+    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,.3);
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .header-date input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+  /* ── Layout ── */
+  .app-body {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 24px 48px;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+  }
+  .left-panel { display: flex; flex-direction: column; gap: 20px; }
+  .right-panel { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-header {
+    background: var(--navy);
+    color: #fff;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+  }
+  .card-header .icon { font-size: 14px; opacity: .85; }
+  .card-body { padding: 16px; }
+
+  /* ── Lockable Field ── */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .field-row:last-child { margin-bottom: 0; }
+
+  .field-inner { display: flex; flex-direction: column; gap: 4px; }
+  .field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+
+  .field-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .field-prefix, .field-suffix {
+    position: absolute;
+    font-size: 13px;
+    color: var(--muted);
+    pointer-events: none;
+    line-height: 1;
+  }
+  .field-prefix { left: 10px; }
+  .field-suffix { right: 10px; }
+
+  .field-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color .15s, background .15s;
+    outline: none;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input.has-prefix  { padding-left: 24px; }
+  .field-input.has-suffix  { padding-right: 28px; }
+
+  /* Locked state */
+  .field-row.is-locked .field-input {
+    background: var(--locked-bg);
+    border-color: var(--locked-border);
+    color: var(--locked-text);
+    font-weight: 600;
+  }
+  .field-row.is-locked .field-label { color: var(--amber); }
+
+  /* Lock toggle button */
+  .lock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all .15s;
+    flex-shrink: 0;
+    align-self: flex-end;
+    margin-bottom: 1px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .lock-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .lock-btn.locked {
+    background: var(--locked-bg);
+    border-color: var(--locked-border);
+    color: var(--amber);
+  }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+  /* ── Dynamic Rules (lump sums & contribution changes) ── */
+  .rules-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+
+  .rule-row {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .rule-field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 90px; }
+  .rule-field label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+  .rule-field input,
+  .rule-field select {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    width: 100%;
+  }
+  .rule-field input:focus,
+  .rule-field select:focus { border-color: var(--accent); }
+
+  .rule-remove {
+    background: none;
+    border: 1px solid #fca5a5;
+    border-radius: 5px;
+    color: var(--red);
+    font-size: 14px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .12s;
+    align-self: flex-end;
+  }
+  .rule-remove:hover { background: #fee2e2; }
+
+  .add-rule-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1.5px dashed var(--accent);
+    border-radius: 6px;
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+    transition: background .12s;
+  }
+  .add-rule-btn:hover { background: #eff6ff; }
+
+  /* ── Calculate Button ── */
+  .calc-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--blue-lt) 100%);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: .3px;
+    box-shadow: 0 2px 8px rgba(43,125,233,.35);
+    transition: opacity .15s, transform .1s;
+  }
+  .calc-btn:hover { opacity: .93; transform: translateY(-1px); }
+  .calc-btn:active { transform: translateY(0); }
+
+  /* ── Summary Metrics ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .metric-card {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .metric-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .metric-value.placeholder { color: #cbd5e1; font-size: 16px; }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .metric-card.highlight { border-color: var(--teal); background: #f0fdfa; }
+  .metric-card.highlight .metric-value { color: var(--teal); }
+  .metric-card.warn { border-color: var(--amber); background: var(--locked-bg); }
+  .metric-card.warn .metric-value { color: var(--amber); }
+
+  /* ── Scenario Panel ── */
+  .scenario-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .scenario-tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .scenario-tab.active {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+  }
+  .scenario-tab:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
+
+  .scenario-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-sm {
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: all .12s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-sm.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-sm.primary:hover { opacity: .88; }
+
+  .scenario-compare-placeholder {
+    background: #f8fafc;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 28px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 12px;
+  }
+
+  /* ── Charts ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+  }
+  .chart-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 12px;
+  }
+  .chart-canvas-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 160px;
+  }
+  .chart-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    font-size: 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .chart-placeholder .ph-icon { font-size: 28px; opacity: .3; }
+
+  /* ── Amortization Table ── */
+  .table-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .table-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .table-toggle button {
+    padding: 5px 14px;
+    border: none;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .table-toggle button.active {
+    background: var(--navy);
+    color: #fff;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    min-width: 900px;
+  }
+  thead th {
+    background: var(--navy);
+    color: #fff;
+    padding: 9px 12px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; }
+  tbody td {
+    padding: 7px 12px;
+    text-align: right;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  tbody td:first-child { text-align: left; color: var(--muted); font-weight: 600; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .table-placeholder {
+    padding: 40px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 960px) {
+    .app-body {
+      grid-template-columns: 1fr;
+      padding: 16px;
+    }
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .app-header { padding: 14px 16px; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Utility ── */
+  .section-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -8px;
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--accent);
+    color: #fff;
+    vertical-align: middle;
+  }
+  .badge.amber { background: var(--amber); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════ -->
+<header class="app-header">
+  <div>
+    <h1>HELOC Payoff Model</h1>
+    <div class="subtitle">Bidirectional — lock any field and solve for the rest</div>
+  </div>
+  <div class="header-date">
+    <label for="startDate">Start Date</label>
+    <input type="date" id="startDate">
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN BODY
+════════════════════════════════════════════════════ -->
+<div class="app-body">
+
+  <!-- ════════════ LEFT PANEL ════════════ -->
+  <aside class="left-panel">
+
+    <!-- ── Core Parameters ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">⚙️</span> Core Parameters</div>
+      <div class="card-body">
+
+        <!-- Interest Rate -->
+        <div class="field-row" id="row-rate">
+          <div class="field-inner">
+            <span class="field-label">Interest Rate (Annual)</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input has-suffix" id="interestRate"
+                     placeholder="e.g. 8.5" step="0.01" min="0" max="50">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-rate" title="Lock / Unlock" onclick="toggleLock('rate')">🔓</button>
+        </div>
+
+        <!-- Debt Amount -->
+        <div class="field-row" id="row-debt">
+          <div class="field-inner">
+            <span class="field-label">Debt Amount (Starting Balance)</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="number" class="field-input has-prefix" id="debtAmount"
+                     placeholder="e.g. 75000" step="100" min="0">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-debt" title="Lock / Unlock" onclick="toggleLock('debt')">🔓</button>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Minimum Monthly Payment % -->
+        <div class="field-row" id="row-minPmt">
+          <div class="field-inner">
+            <span class="field-label">Min. Monthly Payment (% of Balance)</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input has-suffix" id="minPaymentPct"
+                     placeholder="e.g. 1.5" step="0.01" min="0" max="100">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-minPmt" title="Lock / Unlock" onclick="toggleLock('minPmt')">🔓</button>
+        </div>
+        <p class="section-note">Minimum recalculates each month against current balance (dynamic, never static).</p>
+
+        <hr class="divider">
+
+        <!-- Total Interest -->
+        <div class="field-row" id="row-totalInterest">
+          <div class="field-inner">
+            <span class="field-label">Total Interest Incurred</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="number" class="field-input has-prefix" id="totalInterest"
+                     placeholder="calculated" step="1" min="0">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-totalInterest" title="Lock / Unlock" onclick="toggleLock('totalInterest')">🔓</button>
+        </div>
+
+        <!-- Payoff Period -->
+        <div class="field-row" id="row-payoffMonths">
+          <div class="field-inner">
+            <span class="field-label">Projected Payoff Period (Months)</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input has-suffix" id="payoffMonths"
+                     placeholder="calculated" step="1" min="1" max="600">
+              <span class="field-suffix">mo</span>
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-payoffMonths" title="Lock / Unlock" onclick="toggleLock('payoffMonths')">🔓</button>
+        </div>
+
+        <!-- Payoff Date -->
+        <div class="field-row" id="row-payoffDate">
+          <div class="field-inner">
+            <span class="field-label">Payoff Date</span>
+            <div class="field-input-wrap">
+              <input type="text" class="field-input" id="payoffDate"
+                     placeholder="calculated" readonly>
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-payoffDate" title="Lock / Unlock" onclick="toggleLock('payoffDate')">🔓</button>
+        </div>
+
+      </div>
+    </div><!-- /Core Parameters -->
+
+    <!-- ── Additional Monthly Contributions ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">📅</span> Additional Monthly Contributions</div>
+      <div class="card-body">
+
+        <div class="field-row" id="row-addlContrib">
+          <div class="field-inner">
+            <span class="field-label">Starting Additional Contribution</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="number" class="field-input has-prefix" id="addlContrib"
+                     placeholder="e.g. 500" step="50" min="0">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-addlContrib" title="Lock / Unlock" onclick="toggleLock('addlContrib')">🔓</button>
+        </div>
+        <p class="section-note">Define amount changes at specific months below.</p>
+
+        <div class="rules-list" id="contribRulesList">
+          <!-- JS-rendered contribution change rows appear here -->
+        </div>
+
+        <button class="add-rule-btn" onclick="addContribRule()">
+          ＋ Add Contribution Change
+        </button>
+
+      </div>
+    </div><!-- /Additional Monthly Contributions -->
+
+    <!-- ── Lump Sum Contributions ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">💰</span> Lump Sum Contributions</div>
+      <div class="card-body">
+        <p class="section-note">Multiple rules may run simultaneously.</p>
+
+        <div class="rules-list" id="lumpSumRulesList">
+          <!-- JS-rendered lump sum rows appear here -->
+        </div>
+
+        <button class="add-rule-btn" onclick="addLumpSumRule()">
+          ＋ Add Lump Sum Rule
+        </button>
+      </div>
+    </div><!-- /Lump Sum Contributions -->
+
+    <!-- ── Calculate ── -->
+    <button class="calc-btn" onclick="calculate()">
+      ⚡ Calculate Payoff Model
+    </button>
+
+  </aside><!-- /left-panel -->
+
+  <!-- ════════════ RIGHT PANEL ════════════ -->
+  <main class="right-panel">
+
+    <!-- ── Summary Metrics ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">📊</span> Summary</div>
+      <div class="card-body">
+        <div class="metrics-grid">
+
+          <div class="metric-card">
+            <span class="metric-label">Monthly Payment</span>
+            <span class="metric-value placeholder" id="m-monthlyPayment">—</span>
+            <span class="metric-sub">Min + Additional</span>
+          </div>
+
+          <div class="metric-card warn">
+            <span class="metric-label">Total Interest</span>
+            <span class="metric-value placeholder" id="m-totalInterest">—</span>
+            <span class="metric-sub">Cumulative</span>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Total Paid</span>
+            <span class="metric-value placeholder" id="m-totalPaid">—</span>
+            <span class="metric-sub">Principal + Interest</span>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Payoff Date</span>
+            <span class="metric-value placeholder" id="m-payoffDate" style="font-size:15px;">—</span>
+            <span class="metric-sub" id="m-payoffMonths"></span>
+          </div>
+
+          <div class="metric-card highlight">
+            <span class="metric-label">Interest Saved</span>
+            <span class="metric-value placeholder" id="m-interestSaved">—</span>
+            <span class="metric-sub">vs. Minimum-Only</span>
+          </div>
+
+          <div class="metric-card highlight">
+            <span class="metric-label">Time Saved</span>
+            <span class="metric-value placeholder" id="m-timeSaved">—</span>
+            <span class="metric-sub">vs. Minimum-Only</span>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /Summary Metrics -->
+
+    <!-- ── Scenarios ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">🔀</span> Scenario Comparison <span class="badge amber" style="margin-left:6px;">up to 4</span></div>
+      <div class="card-body">
+
+        <div class="scenario-tabs" id="scenarioTabs">
+          <div class="scenario-tab active">Current</div>
+        </div>
+
+        <div class="scenario-actions">
+          <button class="btn-sm primary" onclick="saveScenario()">💾 Save as Scenario</button>
+          <button class="btn-sm" onclick="clearScenarios()">🗑 Clear All</button>
+          <button class="btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+        </div>
+
+        <div class="scenario-compare-placeholder" id="scenarioCompare">
+          Save up to 4 named scenarios to compare them side by side.<br>
+          <small>Each scenario captures all inputs, contribution rules, and lump sums.</small>
+        </div>
+
+      </div>
+    </div><!-- /Scenarios -->
+
+    <!-- ── Charts ── -->
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">Balance Curve</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="chartBalance"></canvas>
+          <div class="chart-placeholder" id="phBalance">
+            <div class="ph-icon">📉</div>
+            Run a calculation to see your payoff curve
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Cumulative Interest Accumulation</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="chartInterest"></canvas>
+          <div class="chart-placeholder" id="phInterest">
+            <div class="ph-icon">📈</div>
+            Run a calculation to see interest over time
+          </div>
+        </div>
+      </div>
+    </div><!-- /Charts -->
+
+    <!-- ── Amortization Table ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">📋</span> Amortization Schedule</div>
+      <div class="card-body">
+
+        <div class="table-controls">
+          <div class="table-toggle">
+            <button class="active" id="viewMonthly" onclick="setTableView('monthly')">Monthly</button>
+            <button id="viewAnnual" onclick="setTableView('annual')">Annual Summary</button>
+          </div>
+          <button class="btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="amortTable">
+            <thead>
+              <tr>
+                <th style="text-align:left">Month</th>
+                <th>Date</th>
+                <th>Start Balance</th>
+                <th>Min. Payment</th>
+                <th>Addl. Contrib.</th>
+                <th>Lump Sum</th>
+                <th>Total Payment</th>
+                <th>Principal</th>
+                <th>Interest</th>
+                <th>End Balance</th>
+                <th>Cumul. Interest</th>
+              </tr>
+            </thead>
+            <tbody id="amortBody">
+              <tr>
+                <td colspan="11" class="table-placeholder">
+                  Press <strong>Calculate</strong> to generate the amortization schedule.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div><!-- /Amortization Table -->
+
+  </main><!-- /right-panel -->
+</div><!-- /app-body -->
+
+<!-- ══════════════════════════════════════════════════
+     JAVASCRIPT — UI BEHAVIOR ONLY (Phase 1)
+════════════════════════════════════════════════════ -->
+<script>
+// ── Lock / Unlock state ──────────────────────────
+const lockState = {};
+const lockFields = ['rate','debt','minPmt','totalInterest','payoffMonths','payoffDate','addlContrib'];
+
+function toggleLock(field) {
+  lockState[field] = !lockState[field];
+  const row = document.getElementById('row-' + field);
+  const btn = document.getElementById('lock-' + field);
+  if (lockState[field]) {
+    row.classList.add('is-locked');
+    btn.classList.add('locked');
+    btn.textContent = '🔒';
+    btn.title = 'Locked — click to unlock';
+  } else {
+    row.classList.remove('is-locked');
+    btn.classList.remove('locked');
+    btn.textContent = '🔓';
+    btn.title = 'Unlocked — click to lock';
+  }
+}
+
+// ── Start date default ───────────────────────────
+(function initDate() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2,'0');
+  const d = String(today.getDate()).padStart(2,'0');
+  document.getElementById('startDate').value = `${y}-${m}-${d}`;
+})();
+
+// ── Contribution Change Rules ────────────────────
+let contribRuleCounter = 0;
+
+function addContribRule() {
+  contribRuleCounter++;
+  const id = 'cr-' + contribRuleCounter;
+  const list = document.getElementById('contribRulesList');
+  const div = document.createElement('div');
+  div.className = 'rule-row';
+  div.id = id;
+  div.innerHTML = `
+    <div class="rule-field">
+      <label>Starting Month #</label>
+      <input type="number" placeholder="e.g. 13" min="1" step="1">
+    </div>
+    <div class="rule-field">
+      <label>Amount / Month</label>
+      <div style="position:relative; display:flex; align-items:center;">
+        <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
+        <input type="number" placeholder="e.g. 1000" min="0" step="50" style="padding-left:20px;">
+      </div>
+    </div>
+    <button class="rule-remove" title="Remove" onclick="removeRule('${id}')">✕</button>
+  `;
+  list.appendChild(div);
+}
+
+// ── Lump Sum Rules ───────────────────────────────
+let lumpSumCounter = 0;
+
+function addLumpSumRule() {
+  lumpSumCounter++;
+  const id = 'ls-' + lumpSumCounter;
+  const list = document.getElementById('lumpSumRulesList');
+  const div = document.createElement('div');
+  div.className = 'rule-row';
+  div.id = id;
+  div.innerHTML = `
+    <div class="rule-field" style="min-width:130px;">
+      <label>Cadence</label>
+      <select onchange="updateLumpSumCadence(this, '${id}')">
+        <option value="once">One-time</option>
+        <option value="annually">Annually</option>
+        <option value="biannually">Bi-Annually</option>
+        <option value="quarterly">Quarterly</option>
+        <option value="custom">Custom Interval</option>
+      </select>
+    </div>
+    <div class="rule-field ls-month-field-${lumpSumCounter}">
+      <label>At Month #</label>
+      <input type="number" placeholder="e.g. 6" min="1" step="1" class="ls-month-input">
+    </div>
+    <div class="rule-field ls-interval-field-${lumpSumCounter}" style="display:none;">
+      <label>Every N Months</label>
+      <input type="number" placeholder="e.g. 4" min="1" step="1" class="ls-interval-input">
+    </div>
+    <div class="rule-field">
+      <label>Amount</label>
+      <div style="position:relative; display:flex; align-items:center;">
+        <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
+        <input type="number" placeholder="e.g. 5000" min="0" step="100" style="padding-left:20px;">
+      </div>
+    </div>
+    <button class="rule-remove" title="Remove" onclick="removeRule('${id}')">✕</button>
+  `;
+  list.appendChild(div);
+}
+
+function updateLumpSumCadence(select, rowId) {
+  const row = document.getElementById(rowId);
+  const counter = rowId.split('-')[1];
+  const monthField    = row.querySelector('.ls-month-field-' + counter);
+  const intervalField = row.querySelector('.ls-interval-field-' + counter);
+  const monthLabel    = monthField ? monthField.querySelector('label') : null;
+
+  if (select.value === 'once') {
+    if (monthField)    { monthField.style.display = ''; if (monthLabel) monthLabel.textContent = 'At Month #'; }
+    if (intervalField) intervalField.style.display = 'none';
+  } else if (select.value === 'custom') {
+    if (monthField)    { monthField.style.display = ''; if (monthLabel) monthLabel.textContent = 'Starting Month #'; }
+    if (intervalField) intervalField.style.display = '';
+  } else {
+    // annually / biannually / quarterly — just need a starting month
+    if (monthField)    { monthField.style.display = ''; if (monthLabel) monthLabel.textContent = 'Starting Month #'; }
+    if (intervalField) intervalField.style.display = 'none';
+  }
+}
+
+function removeRule(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ── Table view toggle ────────────────────────────
+function setTableView(view) {
+  document.getElementById('viewMonthly').classList.toggle('active', view === 'monthly');
+  document.getElementById('viewAnnual').classList.toggle('active', view === 'annual');
+  // Phase 2: re-render table in chosen view
+}
+
+// ── Stubs for Phase 2+ ───────────────────────────
+function calculate()     { console.log('calculate() — Phase 2'); }
+function saveScenario()  { console.log('saveScenario() — Phase 3'); }
+function clearScenarios(){ console.log('clearScenarios() — Phase 3'); }
+function exportCSV()     { console.log('exportCSV() — Phase 4'); }
+</script>
+
+</body>
+</html>
