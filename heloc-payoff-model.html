@@ -530,6 +530,53 @@
     font-size: 13px; padding: 0 2px; line-height: 1; opacity: .7; }
   .scenario-tab-del:hover { color: var(--red); opacity: 1; }
 
+  /* ── Featured total-payment card ── */
+  .metric-featured {
+    grid-column: span 2;
+    border-color: var(--accent);
+    background: linear-gradient(135deg, #eff6ff 0%, #f0f4f8 100%);
+  }
+  .metric-featured .metric-value { color: var(--accent); font-size: 26px; }
+  .metric-featured .metric-label { color: var(--blue); }
+  .metric-breakdown {
+    display: none;
+    align-items: stretch;
+    gap: 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  .metric-breakdown.visible { display: flex; }
+  .breakdown-chip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 8px;
+  }
+  .breakdown-chip + .breakdown-chip {
+    border-left: 1px solid var(--border);
+  }
+  .breakdown-chip-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--muted);
+  }
+  .breakdown-chip-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .breakdown-plus {
+    align-self: center;
+    font-size: 16px;
+    color: var(--muted);
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+
   /* ── Utility ── */
   .section-note {
     font-size: 11px;
@@ -726,10 +773,21 @@
       <div class="card-body">
         <div class="metrics-grid">
 
-          <div class="metric-card">
-            <span class="metric-label">Monthly Payment</span>
+          <div class="metric-card metric-featured">
+            <span class="metric-label">Total Monthly Payment</span>
             <span class="metric-value placeholder" id="m-monthlyPayment">—</span>
-            <span class="metric-sub">Min + Additional</span>
+            <span class="metric-sub">Month 1 starting payment</span>
+            <div class="metric-breakdown" id="m-paymentBreakdown">
+              <div class="breakdown-chip">
+                <span class="breakdown-chip-label">Min. Payment</span>
+                <span class="breakdown-chip-value" id="m-minPmt">—</span>
+              </div>
+              <span class="breakdown-plus">+</span>
+              <div class="breakdown-chip">
+                <span class="breakdown-chip-label">Additional</span>
+                <span class="breakdown-chip-value" id="m-addlContrib">—</span>
+              </div>
+            </div>
           </div>
 
           <div class="metric-card warn">
@@ -1414,9 +1472,11 @@ function updateSummary(schedule, params, baseline) {
   const payoffMonths  = schedule.length;
   const payoffDate    = last.date;
 
-  // First-month payment estimate (min + addl)
-  const firstRow = schedule[0];
-  const monthlyEst = firstRow.minPmt + firstRow.addlContrib;
+  // First-month payment components
+  const firstRow   = schedule[0];
+  const minPmtAmt  = firstRow.minPmt;
+  const addlAmt    = firstRow.addlContrib;
+  const monthlyEst = round2(minPmtAmt + addlAmt);
 
   // Baseline comparison
   const baselineInterest = baseline.length ? baseline[baseline.length-1].cumulInterest : totalInterest;
@@ -1425,12 +1485,17 @@ function updateSummary(schedule, params, baseline) {
   const monthsSaved      = baselineMonths - payoffMonths;
 
   setText('m-monthlyPayment', fmt(monthlyEst));
+  setText('m-minPmt',         fmt(minPmtAmt));
+  setText('m-addlContrib',    addlAmt > 0 ? fmt(addlAmt) : '$0.00');
   setText('m-totalInterest',  fmt(totalInterest));
   setText('m-totalPaid',      fmt(round2(totalPaid)));
   setText('m-payoffDate',     payoffDate);
   setText('m-payoffMonths',   `${payoffMonths} months`);
   setText('m-interestSaved',  interestSaved > 0 ? fmt(interestSaved) : '$0.00');
   setText('m-timeSaved',      monthsSaved > 0   ? formatMonths(monthsSaved) : '—');
+
+  // Show the breakdown row
+  document.getElementById('m-paymentBreakdown').classList.add('visible');
 
   // Remove placeholder styling
   ['m-monthlyPayment','m-totalInterest','m-totalPaid','m-payoffDate','m-interestSaved','m-timeSaved']
