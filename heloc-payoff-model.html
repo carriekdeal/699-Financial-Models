@@ -60,24 +60,26 @@
     opacity: .75;
     margin-top: 2px;
   }
-  .header-date {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .header-date { display: none; }
+
+  /* ── Start Date — primary field styling ── */
+  .start-date-row { margin-bottom: 16px; }
+  .start-date-row .field-label {
+    color: var(--blue);
     font-size: 13px;
-    opacity: .9;
+    letter-spacing: .4px;
   }
-  .header-date label { font-weight: 600; }
-  .header-date input[type="date"] {
-    padding: 4px 8px;
-    border-radius: 5px;
-    border: 1px solid rgba(255,255,255,.3);
-    background: rgba(255,255,255,.15);
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
+  .start-date-row .field-input {
+    font-size: 16px;
+    font-weight: 700;
+    border-color: var(--accent);
+    color: var(--navy);
+    padding: 10px 12px;
   }
-  .header-date input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+  .start-date-row .field-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(43,125,233,.12);
+  }
 
   /* ── Layout ── */
   .app-body {
@@ -707,6 +709,18 @@
       <div class="card-header"><span class="icon">⚙️</span> Core Parameters</div>
       <div class="card-body">
 
+        <!-- Plan Start Date -->
+        <div class="field-row start-date-row">
+          <div class="field-inner" style="width:100%">
+            <span class="field-label">Plan Start Date</span>
+            <div class="field-input-wrap">
+              <input type="date" class="field-input" id="startDate">
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider">
+
         <!-- Interest Rate -->
         <div class="field-row" id="row-rate">
           <div class="field-inner">
@@ -935,7 +949,7 @@
 
           <div class="metric-card">
             <span class="metric-label">Payoff Date</span>
-            <span class="metric-value placeholder" id="m-payoffDate" style="font-size:15px;">—</span>
+            <span class="metric-value placeholder" id="m-payoffDate" style="font-size:14px;line-height:1.3">—</span>
             <span class="metric-sub" id="m-payoffMonths"></span>
           </div>
 
@@ -1255,10 +1269,16 @@ function getLumpSumForMonth(lsRules, monthNum) {
 }
 
 function monthNumToDate(startDateStr, monthOffset) {
-  // monthOffset 0 = first payment month (month 1 in table = +1 month from start)
-  const [y, m, d] = startDateStr.split('-').map(Number);
+  const [y, m] = startDateStr.split('-').map(Number);
   const dt = new Date(y, m - 1 + monthOffset, 1);
   return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+// Full "Month DD, YYYY" format for payoff date display
+function monthNumToFullDate(startDateStr, monthOffset) {
+  const [y, m] = startDateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1 + monthOffset, 1);
+  return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 // ════════════════════════════════════════════════
@@ -1642,10 +1662,11 @@ function updateSummary(schedule, params, baseline) {
   if (!schedule.length) return;
 
   const last = schedule[schedule.length - 1];
-  const totalInterest = last.cumulInterest;
-  const totalPaid     = schedule.reduce((s, r) => s + r.totalPmt, 0);
-  const payoffMonths  = schedule.length;
-  const payoffDate    = last.date;
+  const totalInterest  = last.cumulInterest;
+  const totalPaid      = schedule.reduce((s, r) => s + r.totalPmt, 0);
+  const payoffMonths   = schedule.length;
+  const startDateStr   = params.startDateStr;
+  const payoffDateFull = monthNumToFullDate(startDateStr, payoffMonths);
 
   // First-month payment components
   const firstRow   = schedule[0];
@@ -1672,8 +1693,8 @@ function updateSummary(schedule, params, baseline) {
   setText('m-addlContrib',    addlAmt > 0 ? fmt(addlAmt) : '$0.00');
   setText('m-totalInterest',  fmt(totalInterest));
   setText('m-totalPaid',      fmt(round2(totalPaid)));
-  setText('m-payoffDate',     payoffDate);
-  setText('m-payoffMonths',   `${payoffMonths} months`);
+  setText('m-payoffDate',    payoffDateFull);
+  setText('m-payoffMonths', `${payoffMonths} months`);
   setText('m-interestSaved',  interestSaved > 0 ? fmt(interestSaved) : '$0.00');
   setText('m-timeSaved',      monthsSaved !== null && monthsSaved > 0
     ? formatMonths(monthsSaved)
@@ -1716,7 +1737,7 @@ function updateSummary(schedule, params, baseline) {
     document.getElementById('payoffMonths').value = payoffMonths;
   }
   if (!lockState['payoffDate']) {
-    document.getElementById('payoffDate').value = payoffDate;
+    document.getElementById('payoffDate').value = payoffDateFull;
   }
 }
 
@@ -1748,11 +1769,15 @@ function bisect(fn, lo, hi, target, tol, maxIter) {
 }
 
 // ── 8b: Helpers ──────────────────────────────────
-// Convert "Apr 2027" or "2027-04" style string to months from startDate
+// Convert date string to months from startDate.
+// Handles "April 1, 2027" (full), "Apr 2027" (short), "2027-04" (ISO partial).
 function payoffDateToMonths(startDateStr, payoffDateStr) {
   if (!payoffDateStr) return null;
-  // Try appending " 1" to coerce "Apr 2027" into a parseable date
-  const end = new Date(payoffDateStr.trim() + ' 1');
+  let end = new Date(payoffDateStr.trim());
+  if (isNaN(end.getTime())) {
+    // Try appending " 1" for short formats like "Apr 2027"
+    end = new Date(payoffDateStr.trim() + ' 1');
+  }
   if (isNaN(end.getTime())) return null;
   const [sy, sm] = startDateStr.split('-').map(Number);
   const diff = (end.getFullYear() - sy) * 12 + (end.getMonth() - (sm - 1));
