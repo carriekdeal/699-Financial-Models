@@ -842,12 +842,14 @@
 </div><!-- /app-body -->
 
 <!-- ══════════════════════════════════════════════════
-     JAVASCRIPT — UI BEHAVIOR ONLY (Phase 1)
+     JAVASCRIPT
 ════════════════════════════════════════════════════ -->
 <script>
-// ── Lock / Unlock state ──────────────────────────
+// ════════════════════════════════════════════════
+// SECTION 1 — UI STATE (lock/unlock, rules, date)
+// ════════════════════════════════════════════════
+
 const lockState = {};
-const lockFields = ['rate','debt','minPmt','totalInterest','payoffMonths','payoffDate','addlContrib'];
 
 function toggleLock(field) {
   lockState[field] = !lockState[field];
@@ -866,7 +868,6 @@ function toggleLock(field) {
   }
 }
 
-// ── Start date default ───────────────────────────
 (function initDate() {
   const today = new Date();
   const y = today.getFullYear();
@@ -892,7 +893,7 @@ function addContribRule() {
     </div>
     <div class="rule-field">
       <label>Amount / Month</label>
-      <div style="position:relative; display:flex; align-items:center;">
+      <div style="position:relative;display:flex;align-items:center;">
         <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
         <input type="number" placeholder="e.g. 1000" min="0" step="50" style="padding-left:20px;">
       </div>
@@ -933,7 +934,7 @@ function addLumpSumRule() {
     </div>
     <div class="rule-field">
       <label>Amount</label>
-      <div style="position:relative; display:flex; align-items:center;">
+      <div style="position:relative;display:flex;align-items:center;">
         <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
         <input type="number" placeholder="e.g. 5000" min="0" step="100" style="padding-left:20px;">
       </div>
@@ -944,22 +945,20 @@ function addLumpSumRule() {
 }
 
 function updateLumpSumCadence(select, rowId) {
-  const row = document.getElementById(rowId);
-  const counter = rowId.split('-')[1];
-  const monthField    = row.querySelector('.ls-month-field-' + counter);
-  const intervalField = row.querySelector('.ls-interval-field-' + counter);
-  const monthLabel    = monthField ? monthField.querySelector('label') : null;
-
+  const row      = document.getElementById(rowId);
+  const counter  = rowId.split('-')[1];
+  const monthF   = row.querySelector('.ls-month-field-'    + counter);
+  const intervalF= row.querySelector('.ls-interval-field-' + counter);
+  const lbl      = monthF ? monthF.querySelector('label') : null;
   if (select.value === 'once') {
-    if (monthField)    { monthField.style.display = ''; if (monthLabel) monthLabel.textContent = 'At Month #'; }
-    if (intervalField) intervalField.style.display = 'none';
+    if (monthF)    { monthF.style.display = ''; if (lbl) lbl.textContent = 'At Month #'; }
+    if (intervalF) intervalF.style.display = 'none';
   } else if (select.value === 'custom') {
-    if (monthField)    { monthField.style.display = ''; if (monthLabel) monthLabel.textContent = 'Starting Month #'; }
-    if (intervalField) intervalField.style.display = '';
+    if (monthF)    { monthF.style.display = ''; if (lbl) lbl.textContent = 'Starting Month #'; }
+    if (intervalF) intervalF.style.display = '';
   } else {
-    // annually / biannually / quarterly — just need a starting month
-    if (monthField)    { monthField.style.display = ''; if (monthLabel) monthLabel.textContent = 'Starting Month #'; }
-    if (intervalField) intervalField.style.display = 'none';
+    if (monthF)    { monthF.style.display = ''; if (lbl) lbl.textContent = 'Starting Month #'; }
+    if (intervalF) intervalF.style.display = 'none';
   }
 }
 
@@ -968,15 +967,592 @@ function removeRule(id) {
   if (el) el.remove();
 }
 
-// ── Table view toggle ────────────────────────────
-function setTableView(view) {
-  document.getElementById('viewMonthly').classList.toggle('active', view === 'monthly');
-  document.getElementById('viewAnnual').classList.toggle('active', view === 'annual');
-  // Phase 2: re-render table in chosen view
+// ════════════════════════════════════════════════
+// SECTION 2 — INPUT READERS
+// ════════════════════════════════════════════════
+
+function readContribRules() {
+  const rows = document.querySelectorAll('#contribRulesList .rule-row');
+  const rules = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input[type="number"]');
+    const startMonth = parseFloat(inputs[0].value);
+    const amount     = parseFloat(inputs[1].value);
+    if (!isNaN(startMonth) && startMonth >= 1 && !isNaN(amount) && amount >= 0) {
+      rules.push({ startMonth: Math.round(startMonth), amount });
+    }
+  });
+  return rules.sort((a, b) => a.startMonth - b.startMonth);
 }
 
-// ── Stubs for Phase 2+ ───────────────────────────
-function calculate()     { console.log('calculate() — Phase 2'); }
+function readLumpSumRules() {
+  const rows = document.querySelectorAll('#lumpSumRulesList .rule-row');
+  const rules = [];
+  rows.forEach(row => {
+    const cadence  = row.querySelector('select').value;
+    const monthInp = row.querySelector('.ls-month-input');
+    const intervalInp = row.querySelector('.ls-interval-input');
+    const amountInp = row.querySelectorAll('input[type="number"]');
+    // last numeric input is always the amount
+    const amount = parseFloat(amountInp[amountInp.length - 1].value);
+    const startMonth = monthInp ? parseFloat(monthInp.value) : NaN;
+    if (isNaN(amount) || amount <= 0) return;
+    const rule = { cadence, amount, startMonth: isNaN(startMonth) ? 1 : Math.round(startMonth) };
+    if (cadence === 'custom') {
+      const interval = intervalInp ? parseFloat(intervalInp.value) : NaN;
+      rule.interval = (!isNaN(interval) && interval >= 1) ? Math.round(interval) : 1;
+    }
+    rules.push(rule);
+  });
+  return rules;
+}
+
+function getContribForMonth(baseContrib, changeRules, monthNum) {
+  // Start from base; apply the highest-startMonth rule that has startMonth <= monthNum
+  let amount = baseContrib;
+  for (const r of changeRules) {
+    if (r.startMonth <= monthNum) amount = r.amount;
+    else break; // rules are sorted ascending
+  }
+  return amount;
+}
+
+function getLumpSumForMonth(lsRules, monthNum) {
+  let total = 0;
+  for (const r of lsRules) {
+    const s = r.startMonth;
+    if (monthNum < s) continue;
+    switch (r.cadence) {
+      case 'once':
+        if (monthNum === s) total += r.amount;
+        break;
+      case 'annually':
+        if ((monthNum - s) % 12 === 0) total += r.amount;
+        break;
+      case 'biannually':
+        if ((monthNum - s) % 6 === 0) total += r.amount;
+        break;
+      case 'quarterly':
+        if ((monthNum - s) % 3 === 0) total += r.amount;
+        break;
+      case 'custom':
+        if (r.interval > 0 && (monthNum - s) % r.interval === 0) total += r.amount;
+        break;
+    }
+  }
+  return total;
+}
+
+function monthNumToDate(startDateStr, monthOffset) {
+  // monthOffset 0 = first payment month (month 1 in table = +1 month from start)
+  const [y, m, d] = startDateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1 + monthOffset, 1);
+  return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+// ════════════════════════════════════════════════
+// SECTION 3 — CORE AMORTIZATION ENGINE
+// ════════════════════════════════════════════════
+
+/**
+ * Returns array of monthly rows. Each row:
+ * { monthNum, date, startBal, minPmt, addlContrib, lumpSum,
+ *   totalPmt, principal, interest, endBal, cumulInterest,
+ *   contribChanged, hasLumpSum }
+ */
+function runAmortization(params) {
+  const { balance, annualRate, minPctPerMonth, baseContrib,
+          contribRules, lsRules, startDateStr, maxMonths } = params;
+
+  const monthlyRate = annualRate / 100 / 12;
+  const limit = maxMonths || 600;
+  const schedule = [];
+  let bal = balance;
+  let cumulInterest = 0;
+  let prevContrib = baseContrib;
+
+  for (let n = 1; n <= limit; n++) {
+    if (bal <= 0.005) break;
+
+    const startBal  = bal;
+    const interest  = round2(startBal * monthlyRate);
+    const minPmt    = round2(startBal * minPctPerMonth / 100);
+    const addl      = round2(getContribForMonth(baseContrib, contribRules, n));
+    const lumpSum   = round2(getLumpSumForMonth(lsRules, n));
+
+    // Total payment capped so we never overpay
+    let totalPmt = minPmt + addl + lumpSum;
+    const maxPmt = startBal + interest;          // can't pay more than full payoff
+    if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
+
+    const principal = round2(totalPmt - interest);
+    const endBal    = Math.max(0, round2(startBal - principal));
+    cumulInterest   = round2(cumulInterest + interest);
+
+    const contribChanged = (n > 1 && addl !== prevContrib);
+    prevContrib = addl;
+
+    schedule.push({
+      monthNum: n,
+      date:     monthNumToDate(startDateStr, n),
+      startBal,
+      minPmt,
+      addlContrib: addl,
+      lumpSum,
+      totalPmt,
+      principal,
+      interest,
+      endBal,
+      cumulInterest,
+      contribChanged,
+      hasLumpSum: lumpSum > 0,
+    });
+
+    bal = endBal;
+    if (bal <= 0.005) break;
+  }
+  return schedule;
+}
+
+/**
+ * Collapse monthly schedule into annual summary rows.
+ */
+function buildAnnualSummary(schedule) {
+  const years = {};
+  for (const row of schedule) {
+    const yr = Math.ceil(row.monthNum / 12);
+    if (!years[yr]) {
+      years[yr] = {
+        year: yr, months: 0,
+        startBal: row.startBal,
+        endBal: row.endBal,
+        totalMinPmt: 0, totalAddl: 0, totalLumpSum: 0,
+        totalPmt: 0, totalPrincipal: 0, totalInterest: 0,
+        cumulInterest: 0
+      };
+    }
+    const y = years[yr];
+    y.months++;
+    y.endBal         = row.endBal;
+    y.totalMinPmt   += row.minPmt;
+    y.totalAddl     += row.addlContrib;
+    y.totalLumpSum  += row.lumpSum;
+    y.totalPmt      += row.totalPmt;
+    y.totalPrincipal+= row.principal;
+    y.totalInterest += row.interest;
+    y.cumulInterest  = row.cumulInterest;
+  }
+  return Object.values(years);
+}
+
+// ════════════════════════════════════════════════
+// SECTION 4 — MINIMUM-ONLY BASELINE (for savings calc)
+// ════════════════════════════════════════════════
+
+function runMinOnlyBaseline(balance, annualRate, minPct) {
+  const params = {
+    balance, annualRate, minPctPerMonth: minPct,
+    baseContrib: 0, contribRules: [], lsRules: [],
+    startDateStr: document.getElementById('startDate').value,
+    maxMonths: 1200
+  };
+  return runAmortization(params);
+}
+
+// ════════════════════════════════════════════════
+// SECTION 5 — RENDER TABLE
+// ════════════════════════════════════════════════
+
+let currentView = 'monthly';
+let lastSchedule = null;
+
+function setTableView(view) {
+  currentView = view;
+  document.getElementById('viewMonthly').classList.toggle('active', view === 'monthly');
+  document.getElementById('viewAnnual').classList.toggle('active', view === 'annual');
+  if (view === 'monthly') restoreMonthlyHeaders();
+  if (lastSchedule) renderTable(lastSchedule);
+}
+
+function renderTable(schedule) {
+  const tbody = document.getElementById('amortBody');
+  tbody.innerHTML = '';
+
+  if (!schedule || schedule.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" class="table-placeholder">No data.</td></tr>';
+    return;
+  }
+
+  if (currentView === 'annual') {
+    renderAnnualTable(buildAnnualSummary(schedule), tbody);
+  } else {
+    renderMonthlyTable(schedule, tbody);
+  }
+}
+
+function renderMonthlyTable(schedule, tbody) {
+  const frag = document.createDocumentFragment();
+  for (const r of schedule) {
+    const tr = document.createElement('tr');
+    // Row highlights
+    if (r.contribChanged) tr.classList.add('row-contrib-change');
+    if (r.hasLumpSum)     tr.classList.add('row-lump-sum');
+    if (r.endBal <= 0.005) tr.classList.add('row-payoff');
+
+    let monthLabel = `Month ${r.monthNum}`;
+    const badges = [];
+    if (r.contribChanged) badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
+    if (r.hasLumpSum)     badges.push('<span class="badge" style="background:var(--blue-lt);margin-left:4px">Lump Sum</span>');
+    if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
+
+    tr.innerHTML = `
+      <td>${monthLabel}${badges.join('')}</td>
+      <td>${r.date}</td>
+      <td>${fmt(r.startBal)}</td>
+      <td>${fmt(r.minPmt)}</td>
+      <td>${r.addlContrib > 0 ? fmt(r.addlContrib) : '—'}</td>
+      <td>${r.lumpSum > 0 ? fmt(r.lumpSum) : '—'}</td>
+      <td><strong>${fmt(r.totalPmt)}</strong></td>
+      <td>${fmt(r.principal)}</td>
+      <td>${fmt(r.interest)}</td>
+      <td>${r.endBal <= 0.005 ? '<strong style="color:var(--green)">$0.00</strong>' : fmt(r.endBal)}</td>
+      <td>${fmt(r.cumulInterest)}</td>
+    `;
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+}
+
+function renderAnnualTable(annualRows, tbody) {
+  // Swap column headers for annual view
+  const thead = document.querySelector('#amortTable thead tr');
+  thead.innerHTML = `
+    <th style="text-align:left">Year</th>
+    <th>Months</th>
+    <th>Start Balance</th>
+    <th>Total Min. Pmts</th>
+    <th>Total Addl.</th>
+    <th>Total Lump Sums</th>
+    <th>Total Paid</th>
+    <th>Total Principal</th>
+    <th>Total Interest</th>
+    <th>End Balance</th>
+    <th>Cumul. Interest</th>
+  `;
+  const frag = document.createDocumentFragment();
+  for (const r of annualRows) {
+    const tr = document.createElement('tr');
+    if (r.endBal <= 0.005) tr.classList.add('row-payoff');
+    tr.innerHTML = `
+      <td>Year ${r.year}</td>
+      <td style="text-align:right">${r.months}</td>
+      <td>${fmt(r.startBal)}</td>
+      <td>${fmt(r.totalMinPmt)}</td>
+      <td>${r.totalAddl > 0 ? fmt(r.totalAddl) : '—'}</td>
+      <td>${r.totalLumpSum > 0 ? fmt(r.totalLumpSum) : '—'}</td>
+      <td><strong>${fmt(r.totalPmt)}</strong></td>
+      <td>${fmt(r.totalPrincipal)}</td>
+      <td>${fmt(r.totalInterest)}</td>
+      <td>${r.endBal <= 0.005 ? '<strong style="color:var(--green)">$0.00</strong>' : fmt(r.endBal)}</td>
+      <td>${fmt(r.cumulInterest)}</td>
+    `;
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+}
+
+// Restore monthly column headers when switching back
+function restoreMonthlyHeaders() {
+  const thead = document.querySelector('#amortTable thead tr');
+  thead.innerHTML = `
+    <th style="text-align:left">Month</th>
+    <th>Date</th>
+    <th>Start Balance</th>
+    <th>Min. Payment</th>
+    <th>Addl. Contrib.</th>
+    <th>Lump Sum</th>
+    <th>Total Payment</th>
+    <th>Principal</th>
+    <th>Interest</th>
+    <th>End Balance</th>
+    <th>Cumul. Interest</th>
+  `;
+}
+
+
+// ════════════════════════════════════════════════
+// SECTION 6 — CHART.JS RENDERING
+// ════════════════════════════════════════════════
+
+let chartBalance  = null;
+let chartInterest = null;
+
+function renderCharts(schedule) {
+  // Show canvases, hide placeholders
+  document.getElementById('phBalance').style.display  = 'none';
+  document.getElementById('phInterest').style.display = 'none';
+
+  // Downsample for large schedules (keep every Nth point, always keep last)
+  const MAX_POINTS = 120;
+  const step = Math.max(1, Math.floor(schedule.length / MAX_POINTS));
+  const sampled = schedule.filter((_, i) => i % step === 0 || i === schedule.length - 1);
+
+  const labels    = sampled.map(r => r.date);
+  const balances  = sampled.map(r => r.endBal);
+  const cumInterest = sampled.map(r => r.cumulInterest);
+
+  const gridColor = 'rgba(0,0,0,0.06)';
+  const tooltipStyle = {
+    backgroundColor: '#1a2a4a',
+    titleColor: '#fff',
+    bodyColor: '#cbd5e1',
+    padding: 10,
+    cornerRadius: 6,
+  };
+
+  // ── Balance Chart ──
+  if (chartBalance) chartBalance.destroy();
+  chartBalance = new Chart(document.getElementById('chartBalance'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Remaining Balance',
+        data: balances,
+        borderColor: '#2b7de9',
+        backgroundColor: 'rgba(43,125,233,0.10)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...tooltipStyle,
+          callbacks: { label: ctx => ' ' + fmtTooltip(ctx.parsed.y) }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
+        y: {
+          ticks: { callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v), font: { size: 11 } },
+          grid: { color: gridColor }
+        }
+      }
+    }
+  });
+
+  // ── Interest Chart ──
+  if (chartInterest) chartInterest.destroy();
+  chartInterest = new Chart(document.getElementById('chartInterest'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cumulative Interest',
+        data: cumInterest,
+        borderColor: '#d97706',
+        backgroundColor: 'rgba(217,119,6,0.10)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...tooltipStyle,
+          callbacks: { label: ctx => ' ' + fmtTooltip(ctx.parsed.y) }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
+        y: {
+          ticks: { callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v), font: { size: 11 } },
+          grid: { color: gridColor }
+        }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+// SECTION 7 — SUMMARY METRICS PANEL
+// ════════════════════════════════════════════════
+
+function updateSummary(schedule, params, baseline) {
+  if (!schedule.length) return;
+
+  const last = schedule[schedule.length - 1];
+  const totalInterest = last.cumulInterest;
+  const totalPaid     = schedule.reduce((s, r) => s + r.totalPmt, 0);
+  const payoffMonths  = schedule.length;
+  const payoffDate    = last.date;
+
+  // First-month payment estimate (min + addl)
+  const firstRow = schedule[0];
+  const monthlyEst = firstRow.minPmt + firstRow.addlContrib;
+
+  // Baseline comparison
+  const baselineInterest = baseline.length ? baseline[baseline.length-1].cumulInterest : totalInterest;
+  const baselineMonths   = baseline.length;
+  const interestSaved    = round2(baselineInterest - totalInterest);
+  const monthsSaved      = baselineMonths - payoffMonths;
+
+  setText('m-monthlyPayment', fmt(monthlyEst));
+  setText('m-totalInterest',  fmt(totalInterest));
+  setText('m-totalPaid',      fmt(round2(totalPaid)));
+  setText('m-payoffDate',     payoffDate);
+  setText('m-payoffMonths',   `${payoffMonths} months`);
+  setText('m-interestSaved',  interestSaved > 0 ? fmt(interestSaved) : '$0.00');
+  setText('m-timeSaved',      monthsSaved > 0   ? formatMonths(monthsSaved) : '—');
+
+  // Remove placeholder styling
+  ['m-monthlyPayment','m-totalInterest','m-totalPaid','m-payoffDate','m-interestSaved','m-timeSaved']
+    .forEach(id => document.getElementById(id).classList.remove('placeholder'));
+
+  // Also sync locked output fields
+  if (!lockState['totalInterest']) {
+    document.getElementById('totalInterest').value = totalInterest.toFixed(2);
+  }
+  if (!lockState['payoffMonths']) {
+    document.getElementById('payoffMonths').value = payoffMonths;
+  }
+  if (!lockState['payoffDate']) {
+    document.getElementById('payoffDate').value = payoffDate;
+  }
+}
+
+// ════════════════════════════════════════════════
+// SECTION 8 — MAIN CALCULATE ENTRY POINT
+// ════════════════════════════════════════════════
+
+function calculate() {
+  clearError();
+
+  const annualRate   = parseFloat(document.getElementById('interestRate').value);
+  const balance      = parseFloat(document.getElementById('debtAmount').value);
+  const minPct       = parseFloat(document.getElementById('minPaymentPct').value);
+  const baseContrib  = parseFloat(document.getElementById('addlContrib').value) || 0;
+  const startDateStr = document.getElementById('startDate').value;
+
+  // Validate required fields
+  const errs = [];
+  if (isNaN(annualRate) || annualRate <= 0) errs.push('Interest Rate is required and must be > 0.');
+  if (isNaN(balance)    || balance    <= 0) errs.push('Debt Amount is required and must be > 0.');
+  if (isNaN(minPct)     || minPct     <= 0) errs.push('Minimum Monthly Payment % is required and must be > 0.');
+  if (!startDateStr)                        errs.push('Start Date is required.');
+  if (errs.length) { showError(errs.join('<br>')); return; }
+
+  const contribRules = readContribRules();
+  const lsRules      = readLumpSumRules();
+
+  const params = {
+    balance, annualRate, minPctPerMonth: minPct,
+    baseContrib, contribRules, lsRules, startDateStr
+  };
+
+  let schedule;
+  try {
+    schedule = runAmortization(params);
+  } catch(e) {
+    showError('Calculation error: ' + e.message);
+    return;
+  }
+
+  if (!schedule.length) {
+    showError('No amortization schedule produced. Check that interest rate and min payment % are valid.');
+    return;
+  }
+
+  // Check if loan never pays off (hit 600 month cap)
+  if (schedule.length >= 600 && schedule[schedule.length-1].endBal > 0.01) {
+    showError(
+      'Warning: this loan does not pay off within 600 months with current settings. ' +
+      'The minimum payment may be too low to cover monthly interest. Increase the ' +
+      'minimum payment % or add contributions.'
+    );
+    // Still render partial schedule
+  }
+
+  lastSchedule = schedule;
+  restoreMonthlyHeaders();
+  renderTable(schedule);
+  renderCharts(schedule);
+
+  const baseline = runMinOnlyBaseline(balance, annualRate, minPct);
+  updateSummary(schedule, params, baseline);
+}
+
+// ════════════════════════════════════════════════
+// SECTION 9 — UTILITIES
+// ════════════════════════════════════════════════
+
+function round2(v) { return Math.round(v * 100) / 100; }
+
+function fmt(v) {
+  if (isNaN(v)) return '—';
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtTooltip(v) {
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function formatMonths(n) {
+  const yrs = Math.floor(n / 12);
+  const mos = n % 12;
+  if (yrs && mos) return `${yrs}y ${mos}m`;
+  if (yrs)        return `${yrs} yr${yrs > 1 ? 's' : ''}`;
+  return `${mos} mo`;
+}
+
+// ── Inline error display ─────────────────────────
+function showError(msg) {
+  let el = document.getElementById('calcError');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'calcError';
+    el.style.cssText = `
+      background:#fee2e2; border:1px solid #fca5a5; border-radius:6px;
+      color:#991b1b; padding:10px 14px; font-size:13px; margin-top:10px;
+      line-height:1.6;
+    `;
+    document.querySelector('.calc-btn').insertAdjacentElement('afterend', el);
+  }
+  el.innerHTML = '⚠ ' + msg;
+  el.style.display = '';
+}
+function clearError() {
+  const el = document.getElementById('calcError');
+  if (el) el.style.display = 'none';
+}
+
+// ── Row highlight styles (injected once) ────────
+(function injectRowStyles() {
+  const s = document.createElement('style');
+  s.textContent = `
+    tr.row-contrib-change td:first-child { border-left: 3px solid var(--teal); }
+    tr.row-lump-sum       td:first-child { border-left: 3px solid var(--blue-lt); }
+    tr.row-contrib-change.row-lump-sum td:first-child { border-left: 3px solid var(--blue); }
+    tr.row-payoff { background: #f0fdf4 !important; }
+  `;
+  document.head.appendChild(s);
+})();
+
+// ════════════════════════════════════════════════
+// SECTION 10 — STUBS FOR PHASE 3+
+// ════════════════════════════════════════════════
+
 function saveScenario()  { console.log('saveScenario() — Phase 3'); }
 function clearScenarios(){ console.log('clearScenarios() — Phase 3'); }
 function exportCSV()     { console.log('exportCSV() — Phase 4'); }
