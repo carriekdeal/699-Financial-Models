@@ -512,6 +512,24 @@
     .metrics-grid { grid-template-columns: 1fr 1fr; }
   }
 
+  /* ── Scenario Comparison Table ── */
+  .sc-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+  .sc-table th, .sc-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .sc-table thead th { background: var(--navy); color: #fff; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .3px; text-align: center; }
+  .sc-table thead th:first-child { text-align: left; }
+  .sc-table tbody td { text-align: center; }
+  .sc-table tbody td:first-child { text-align: left; color: var(--muted); font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+  .sc-table tbody tr:hover { background: #f8fafc; }
+  .sc-table .sc-best { color: var(--green); font-weight: 700; }
+  .sc-table .sc-worst { color: var(--red); }
+
+  .scenario-tab-wrap { display: flex; align-items: center; gap: 4px; }
+  .scenario-tab-del { background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 13px; padding: 0 2px; line-height: 1; opacity: .7; }
+  .scenario-tab-del:hover { color: var(--red); opacity: 1; }
+
   /* ── Utility ── */
   .section-note {
     font-size: 11px;
@@ -760,7 +778,7 @@
         <div class="scenario-actions">
           <button class="btn-sm primary" onclick="saveScenario()">💾 Save as Scenario</button>
           <button class="btn-sm" onclick="clearScenarios()">🗑 Clear All</button>
-          <button class="btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+          <button class="btn-sm" onclick="exportScenarioCSV()">⬇ Export Comparison CSV</button>
         </div>
 
         <div class="scenario-compare-placeholder" id="scenarioCompare">
@@ -805,7 +823,7 @@
             <button class="active" id="viewMonthly" onclick="setTableView('monthly')">Monthly</button>
             <button id="viewAnnual" onclick="setTableView('annual')">Annual Summary</button>
           </div>
-          <button class="btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+          <button class="btn-sm" onclick="exportAmortCSV()">⬇ Export CSV</button>
         </div>
 
         <div class="table-wrap">
@@ -1784,12 +1802,304 @@ function clearError() {
 })();
 
 // ════════════════════════════════════════════════
-// SECTION 10 — STUBS FOR PHASE 3+
+// SECTION 10 — SCENARIOS
 // ════════════════════════════════════════════════
 
-function saveScenario()  { console.log('saveScenario() — Phase 3'); }
-function clearScenarios(){ console.log('clearScenarios() — Phase 3'); }
-function exportCSV()     { console.log('exportCSV() — Phase 4'); }
+const scenarios = [];   // [{name, params, summary, schedule}]
+
+// ── Capture current state snapshot ──────────────
+function captureCurrentSummary() {
+  // Pull values from the metrics panel
+  const get = id => document.getElementById(id)?.textContent?.trim() || '—';
+  return {
+    monthlyPayment: get('m-monthlyPayment'),
+    totalInterest:  get('m-totalInterest'),
+    totalPaid:      get('m-totalPaid'),
+    payoffDate:     get('m-payoffDate'),
+    payoffMonths:   get('m-payoffMonths'),
+    interestSaved:  get('m-interestSaved'),
+    timeSaved:      get('m-timeSaved'),
+  };
+}
+
+function captureCurrentParams() {
+  return {
+    rate:        document.getElementById('interestRate').value,
+    debt:        document.getElementById('debtAmount').value,
+    minPct:      document.getElementById('minPaymentPct').value,
+    addlContrib: document.getElementById('addlContrib').value,
+    startDate:   document.getElementById('startDate').value,
+  };
+}
+
+// ── Save scenario ────────────────────────────────
+function saveScenario() {
+  if (!lastSchedule || !lastSchedule.length) {
+    showError('Run a calculation first before saving a scenario.');
+    return;
+  }
+  if (scenarios.length >= 4) {
+    showError('Maximum of 4 scenarios reached. Delete one before saving another.');
+    return;
+  }
+
+  const defaultName = `Scenario ${scenarios.length + 1}`;
+  const name = prompt('Name this scenario:', defaultName);
+  if (name === null) return;  // cancelled
+  const finalName = name.trim() || defaultName;
+
+  scenarios.push({
+    name:     finalName,
+    params:   captureCurrentParams(),
+    summary:  captureCurrentSummary(),
+    schedule: lastSchedule.slice(),
+  });
+
+  renderScenarioPanel();
+}
+
+// ── Clear all scenarios ──────────────────────────
+function clearScenarios() {
+  if (!scenarios.length) return;
+  if (!confirm('Clear all saved scenarios?')) return;
+  scenarios.length = 0;
+  renderScenarioPanel();
+}
+
+// ── Delete one scenario ──────────────────────────
+function deleteScenario(idx) {
+  scenarios.splice(idx, 1);
+  renderScenarioPanel();
+}
+
+// ── Render the full scenario panel ──────────────
+function renderScenarioPanel() {
+  renderScenarioTabs();
+  renderScenarioCompare();
+}
+
+function renderScenarioTabs() {
+  const tabs = document.getElementById('scenarioTabs');
+  tabs.innerHTML = '';
+
+  // "Current" pseudo-tab (not deletable)
+  const cur = document.createElement('div');
+  cur.className = 'scenario-tab active';
+  cur.textContent = 'Current';
+  tabs.appendChild(cur);
+
+  scenarios.forEach((sc, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'scenario-tab-wrap';
+
+    const tab = document.createElement('div');
+    tab.className = 'scenario-tab';
+    tab.textContent = sc.name;
+    tab.title = `Rate: ${sc.params.rate}%  Debt: $${sc.params.debt}  Min: ${sc.params.minPct}%  +$${sc.params.addlContrib}/mo`;
+
+    const del = document.createElement('button');
+    del.className = 'scenario-tab-del';
+    del.title = 'Remove scenario';
+    del.innerHTML = '✕';
+    del.onclick = () => deleteScenario(i);
+
+    wrap.appendChild(tab);
+    wrap.appendChild(del);
+    tabs.appendChild(wrap);
+  });
+}
+
+function renderScenarioCompare() {
+  const panel = document.getElementById('scenarioCompare');
+
+  if (!scenarios.length) {
+    panel.innerHTML =
+      'Save up to 4 named scenarios to compare them side by side.<br>' +
+      '<small>Each scenario captures all inputs, contribution rules, and lump sums.</small>';
+    panel.style.display = '';
+    return;
+  }
+
+  // Build comparison table
+  const METRICS = [
+    { key: 'monthlyPayment', label: 'Monthly Payment',     better: 'min' },
+    { key: 'payoffDate',     label: 'Payoff Date',         better: null  },
+    { key: 'payoffMonths',   label: 'Payoff Period',       better: 'min' },
+    { key: 'totalInterest',  label: 'Total Interest',      better: 'min' },
+    { key: 'totalPaid',      label: 'Total Paid',          better: 'min' },
+    { key: 'interestSaved',  label: 'Interest Saved',      better: 'max' },
+    { key: 'timeSaved',      label: 'Time Saved',          better: null  },
+  ];
+
+  // Param rows
+  const PARAMS = [
+    { key: 'rate',        label: 'Interest Rate',    suffix: '%' },
+    { key: 'debt',        label: 'Debt Amount',      prefix: '$' },
+    { key: 'minPct',      label: 'Min. Payment %',   suffix: '%' },
+    { key: 'addlContrib', label: 'Addl. Contrib/mo', prefix: '$' },
+  ];
+
+  let html = `<div style="overflow-x:auto"><table class="sc-table">
+    <thead><tr>
+      <th>Metric</th>
+      ${scenarios.map(sc => `<th>${escHtml(sc.name)}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+  // Param rows (grey section header)
+  html += `<tr><td colspan="${scenarios.length + 1}" style="background:#f1f5f9;font-size:10px;color:var(--navy);font-weight:700;letter-spacing:.5px;padding:6px 12px;">INPUTS</td></tr>`;
+  for (const p of PARAMS) {
+    html += `<tr><td>${p.label}</td>`;
+    for (const sc of scenarios) {
+      const v = sc.params[p.key] || '—';
+      const display = p.prefix ? p.prefix + v : (p.suffix ? v + p.suffix : v);
+      html += `<td>${escHtml(display)}</td>`;
+    }
+    html += `</tr>`;
+  }
+
+  // Outcome rows
+  html += `<tr><td colspan="${scenarios.length + 1}" style="background:#f1f5f9;font-size:10px;color:var(--navy);font-weight:700;letter-spacing:.5px;padding:6px 12px;">RESULTS</td></tr>`;
+  for (const m of METRICS) {
+    const vals = scenarios.map(sc => sc.summary[m.key] || '—');
+    // Determine best/worst for numeric metrics
+    let bestIdx = -1, worstIdx = -1;
+    if (m.better && scenarios.length > 1) {
+      const nums = vals.map(v => parseFloat(v.replace(/[\$,\s]/g, '').replace(/[^0-9.-]/g, '')));
+      const valid = nums.filter(n => !isNaN(n));
+      if (valid.length > 1) {
+        const best  = m.better === 'min' ? Math.min(...valid) : Math.max(...valid);
+        const worst = m.better === 'min' ? Math.max(...valid) : Math.min(...valid);
+        bestIdx  = nums.indexOf(best);
+        worstIdx = nums.indexOf(worst);
+      }
+    }
+    html += `<tr><td>${m.label}</td>`;
+    vals.forEach((v, i) => {
+      const cls = i === bestIdx ? 'sc-best' : i === worstIdx ? 'sc-worst' : '';
+      html += `<td class="${cls}">${escHtml(v)}</td>`;
+    });
+    html += `</tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  panel.innerHTML = html;
+  panel.style.display = '';
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ════════════════════════════════════════════════
+// SECTION 11 — CSV EXPORT
+// ════════════════════════════════════════════════
+
+function downloadCSV(filename, rows) {
+  const csv  = rows.map(r => r.map(cell => {
+    const s = String(cell ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  }).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Amortization table export ────────────────────
+function exportAmortCSV() {
+  if (!lastSchedule || !lastSchedule.length) {
+    showError('Run a calculation first before exporting.');
+    return;
+  }
+
+  const header = [
+    'Month','Date','Start Balance','Min Payment','Addl Contrib',
+    'Lump Sum','Total Payment','Principal','Interest','End Balance','Cumul Interest'
+  ];
+
+  const rows = [header, ...lastSchedule.map(r => [
+    r.monthNum,
+    r.date,
+    r.startBal.toFixed(2),
+    r.minPmt.toFixed(2),
+    r.addlContrib.toFixed(2),
+    r.lumpSum.toFixed(2),
+    r.totalPmt.toFixed(2),
+    r.principal.toFixed(2),
+    r.interest.toFixed(2),
+    r.endBal.toFixed(2),
+    r.cumulInterest.toFixed(2),
+  ])];
+
+  // Append annual summary as a second block
+  rows.push([], ['--- ANNUAL SUMMARY ---']);
+  rows.push(['Year','Months','Start Balance','Total Min Pmts','Total Addl','Total Lump Sums',
+             'Total Paid','Total Principal','Total Interest','End Balance','Cumul Interest']);
+  for (const yr of buildAnnualSummary(lastSchedule)) {
+    rows.push([
+      `Year ${yr.year}`, yr.months,
+      yr.startBal.toFixed(2), yr.totalMinPmt.toFixed(2),
+      yr.totalAddl.toFixed(2), yr.totalLumpSum.toFixed(2),
+      yr.totalPmt.toFixed(2), yr.totalPrincipal.toFixed(2),
+      yr.totalInterest.toFixed(2), yr.endBal.toFixed(2),
+      yr.cumulInterest.toFixed(2),
+    ]);
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  downloadCSV(`heloc-amortization-${date}.csv`, rows);
+}
+
+// ── Scenario comparison export ───────────────────
+function exportScenarioCSV() {
+  if (!scenarios.length) {
+    showError('Save at least one scenario before exporting the comparison.');
+    return;
+  }
+
+  const METRICS = [
+    { key: 'monthlyPayment', label: 'Monthly Payment' },
+    { key: 'payoffDate',     label: 'Payoff Date' },
+    { key: 'payoffMonths',   label: 'Payoff Period' },
+    { key: 'totalInterest',  label: 'Total Interest' },
+    { key: 'totalPaid',      label: 'Total Paid' },
+    { key: 'interestSaved',  label: 'Interest Saved vs Min-Only' },
+    { key: 'timeSaved',      label: 'Time Saved vs Min-Only' },
+  ];
+  const PARAMS = [
+    { key: 'rate',        label: 'Interest Rate (%)' },
+    { key: 'debt',        label: 'Debt Amount ($)' },
+    { key: 'minPct',      label: 'Min Payment (%)' },
+    { key: 'addlContrib', label: 'Addl Contrib/mo ($)' },
+    { key: 'startDate',   label: 'Start Date' },
+  ];
+
+  const names = scenarios.map(sc => sc.name);
+  const rows  = [['', ...names]];
+
+  rows.push(['--- INPUTS ---']);
+  for (const p of PARAMS) {
+    rows.push([p.label, ...scenarios.map(sc => sc.params[p.key] || '')]);
+  }
+
+  rows.push(['--- RESULTS ---']);
+  for (const m of METRICS) {
+    rows.push([m.label, ...scenarios.map(sc => sc.summary[m.key] || '—')]);
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  downloadCSV(`heloc-scenarios-${date}.csv`, rows);
+}
 </script>
 
 </body>
