@@ -1346,10 +1346,8 @@ function runAmortization(params) {
     const interest    = round2(startBal * monthlyRate);
     const inRepayment = n > DRAW_MONTHS;
 
-    // Draw period: interest-only minimum. Repayment period: % of outstanding balance.
-    const minPmt = inRepayment
-      ? round2(startBal * minPctPerMonth / 100)
-      : interest;
+    // 1% of outstanding balance applies in both draw and repayment periods
+    const minPmt = round2(startBal * minPctPerMonth / 100);
 
     const addl    = round2(getContribForMonth(baseContrib, contribRules, n));
     const lumpSum = round2(getLumpSumForMonth(lsRules, n));
@@ -2090,7 +2088,7 @@ function generateInsights(schedule, params, baseline) {
       type: 'info',
       icon: '🔄',
       headline: `Draw period ends at month ${transMonth} (${transDate})`,
-      detail: 'Minimum payment switches from interest-only to 1% of remaining balance'
+      detail: 'Draw period ends — no further draws permitted; balance can only decrease'
     });
   } else {
     items.push({
