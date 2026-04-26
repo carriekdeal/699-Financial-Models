@@ -1148,7 +1148,12 @@ const DRAW_MONTHS  = 240;   // 20-year draw period (interest-only minimum)
 const REPAY_MONTHS = 240;   // 20-year repayment period (% of balance minimum)
 const MAX_LOAN_MONTHS = DRAW_MONTHS + REPAY_MONTHS;  // 480 total
 
-const lockState = {};
+// All fields start explicitly unlocked so !lockState[f] is always a clean boolean
+const lockState = {
+  rate: false, debt: false, minPmt: false,
+  targetHousingPmt: false, fixedObligations: false, lumpSum: false,
+  totalInterest: false, payoffMonths: false, payoffDate: false,
+};
 
 function toggleLock(field) {
   lockState[field] = !lockState[field];
@@ -2513,14 +2518,27 @@ function saveScenario() {
   if (name === null) return;  // cancelled
   const finalName = name.trim() || defaultName;
 
+  // Deep-copy everything so the snapshot is fully independent of live state
   scenarios.push({
     name:     finalName,
-    params:   captureCurrentParams(),
-    summary:  captureCurrentSummary(),
-    schedule: lastSchedule.slice(),
+    params:   JSON.parse(JSON.stringify(captureCurrentParams())),
+    summary:  JSON.parse(JSON.stringify(captureCurrentSummary())),
+    schedule: JSON.parse(JSON.stringify(lastSchedule)),
   });
 
   renderScenarioPanel();
+
+  // Post-save cleanup: reset all solver-output visual indicators so the
+  // active workspace reflects only live field state going forward.
+  document.querySelectorAll('.solved-badge').forEach(el => el.remove());
+
+  // If lumpSumAmount was solver-found (lumpSum is unlocked), its value is
+  // now captured in the scenario. Clear it so the next Calculate always
+  // performs a fresh solve rather than anchoring to the saved result.
+  if (!lockState['lumpSum']) {
+    const lsEl = document.getElementById('lumpSumAmount');
+    if (lsEl) { lsEl.value = ''; updateHousingSubtotal(); }
+  }
 }
 
 // ── Clear all scenarios ──────────────────────────
