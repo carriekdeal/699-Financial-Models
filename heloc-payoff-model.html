@@ -10,26 +10,34 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --navy:     #1a2a4a;
-    --navy-mid: #243558;
-    --blue:     #2c5282;
-    --blue-lt:  #3a6fad;
-    --accent:   #2b7de9;
-    --teal:     #0d9488;
-    --amber:    #d97706;
-    --red:      #dc2626;
-    --green:    #16a34a;
-    --bg:       #f0f4f8;
-    --surface:  #ffffff;
-    --border:   #cbd5e1;
-    --text:     #1e293b;
-    --muted:    #64748b;
-    --locked-bg:#fff7ed;
-    --locked-border:#f59e0b;
-    --locked-text:#92400e;
-    --radius:   8px;
-    --shadow:   0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06);
-    --shadow-md:0 4px 6px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.06);
+    --bg:             #0F1117;
+    --surface:        #1A1D27;
+    --surface-2:      #1E2130;
+    --surface-3:      #252836;
+    --border:         #2A2D3E;
+    --border-lt:      #353849;
+    --accent:         #6366F1;
+    --accent-lt:      #818CF8;
+    --accent-glow:    rgba(99,102,241,.18);
+    --accent-glow-md: rgba(99,102,241,.32);
+    --teal:           #14B8A6;
+    --teal-glow:      rgba(20,184,166,.10);
+    --amber:          #F59E0B;
+    --amber-glow:     rgba(245,158,11,.12);
+    --red:            #EF4444;
+    --red-glow:       rgba(239,68,68,.10);
+    --green:          #10B981;
+    --green-glow:     rgba(16,185,129,.10);
+    --text:           #E2E8F0;
+    --text-dim:       #CBD5E1;
+    --muted:          #64748B;
+    --muted-lt:       #94A3B8;
+    --locked-bg:      rgba(245,158,11,.09);
+    --locked-border:  #F59E0B;
+    --locked-text:    #FCD34D;
+    --radius:         8px;
+    --shadow:         0 1px 4px rgba(0,0,0,.45);
+    --shadow-md:      0 4px 16px rgba(0,0,0,.6);
   }
 
   body {
@@ -38,96 +46,158 @@
     color: var(--text);
     font-size: 14px;
     line-height: 1.5;
+    color-scheme: dark;
   }
 
   /* ── Header ── */
   .app-header {
-    background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
-    color: #fff;
-    padding: 18px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: var(--shadow-md);
+    height: 52px;
   }
   .app-header h1 {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     letter-spacing: .3px;
+    background: linear-gradient(135deg, var(--accent-lt) 0%, var(--teal) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
   .app-header .subtitle {
-    font-size: 12px;
-    opacity: .75;
-    margin-top: 2px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
   }
   .header-date { display: none; }
 
   /* ── Start Date — primary field styling ── */
-  .start-date-row { margin-bottom: 16px; }
-  .start-date-row .field-label {
-    color: var(--blue);
-    font-size: 13px;
-    letter-spacing: .4px;
-  }
+  .start-date-row { margin-bottom: 12px; }
+  .start-date-row .field-label { color: var(--accent-lt); font-size: 11px; letter-spacing: .4px; }
   .start-date-row .field-input {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     border-color: var(--accent);
-    color: var(--navy);
-    padding: 10px 12px;
+    color: var(--text);
+    padding: 7px 10px;
   }
   .start-date-row .field-input:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(43,125,233,.12);
+    border-color: var(--accent-lt);
+    box-shadow: 0 0 0 3px var(--accent-glow);
   }
 
   /* ── Layout ── */
   .app-body {
-    max-width: 1400px;
+    max-width: 1360px;
     margin: 0 auto;
-    padding: 24px 24px 48px;
+    padding: 14px 16px 20px;
     display: grid;
     grid-template-columns: 380px 1fr;
-    gap: 24px;
+    gap: 14px;
+    transition: grid-template-columns .22s ease;
   }
-  .left-panel { display: flex; flex-direction: column; gap: 20px; }
-  .right-panel { display: flex; flex-direction: column; gap: 20px; }
+  .app-body.sidebar-collapsed { grid-template-columns: 196px 1fr; }
+  .left-panel  { display: flex; flex-direction: column; gap: 10px; }
+  .right-panel { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── Sidebar peek (compact collapsed state) ── */
+  .sidebar-peek    { display: none; flex-direction: column; gap: 8px; }
+  .sidebar-content { display: flex; flex-direction: column; gap: 10px; }
+  .app-body.sidebar-collapsed .sidebar-peek    { display: flex; }
+  .app-body.sidebar-collapsed .sidebar-content { display: none; }
+
+  .sidebar-expand-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; padding: 9px 11px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--accent-lt);
+    font-size: 11px; font-weight: 700; letter-spacing: .4px;
+    text-transform: uppercase; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .sidebar-expand-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+  .sidebar-expand-btn .chevron { font-size: 9px; color: var(--muted); }
+
+  .peek-group {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .peek-group-header {
+    background: var(--surface-3); padding: 5px 9px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .peek-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 9px; border-bottom: 1px solid var(--border); gap: 6px;
+  }
+  .peek-row:last-child { border-bottom: none; }
+  .peek-lbl { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+  .peek-val  {
+    font-size: 10.5px; font-weight: 600; color: var(--text-dim);
+    text-align: right; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 95px;
+  }
+
+  .sidebar-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 11px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .sidebar-header-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted-lt);
+  }
+  .sidebar-collapse-btn {
+    background: none; border: 1px solid var(--border); border-radius: 5px;
+    color: var(--muted); font-size: 10px; padding: 2px 7px;
+    cursor: pointer; transition: all .15s;
+  }
+  .sidebar-collapse-btn:hover { border-color: var(--accent); color: var(--accent-lt); }
 
   /* ── Cards ── */
   .card {
     background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     overflow: hidden;
   }
   .card-header {
-    background: var(--navy);
-    color: #fff;
-    padding: 10px 16px;
+    background: var(--surface-3);
+    color: var(--text);
+    padding: 8px 13px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 11.5px;
     letter-spacing: .3px;
     text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
   }
-  .card-header .icon { font-size: 14px; opacity: .85; }
-  .card-body { padding: 16px; }
+  .card-header .icon { font-size: 12px; opacity: .9; }
+  .card-body { padding: 13px; }
 
   /* ── Lockable Field ── */
   .field-row {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 7px;
+    margin-bottom: 11px;
   }
   .field-row:last-child { margin-bottom: 0; }
 
-  .field-inner { display: flex; flex-direction: column; gap: 4px; }
+  .field-inner { display: flex; flex-direction: column; gap: 3px; }
   .field-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--muted);
     text-transform: uppercase;
@@ -141,28 +211,32 @@
   }
   .field-prefix, .field-suffix {
     position: absolute;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--muted);
     pointer-events: none;
     line-height: 1;
   }
-  .field-prefix { left: 10px; }
-  .field-suffix { right: 10px; }
+  .field-prefix { left: 9px; }
+  .field-suffix { right: 9px; }
 
   .field-input {
     width: 100%;
-    padding: 8px 12px;
+    padding: 7px 10px;
     border: 1.5px solid var(--border);
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text);
-    background: var(--surface);
-    transition: border-color .15s, background .15s;
+    background: var(--surface-2);
+    transition: border-color .15s, background .15s, box-shadow .15s;
     outline: none;
   }
-  .field-input:focus { border-color: var(--accent); }
-  .field-input.has-prefix  { padding-left: 24px; }
-  .field-input.has-suffix  { padding-right: 28px; }
+  .field-input:focus {
+    border-color: var(--accent);
+    background: var(--surface-3);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .field-input.has-prefix  { padding-left: 22px; }
+  .field-input.has-suffix  { padding-right: 26px; }
 
   /* Locked state */
   .field-row.is-locked .field-input {
@@ -178,18 +252,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: 6px;
     border: 1.5px solid var(--border);
-    background: var(--surface);
+    background: var(--surface-2);
     cursor: pointer;
     transition: all .15s;
     flex-shrink: 0;
     align-self: flex-end;
     margin-bottom: 1px;
     color: var(--muted);
-    font-size: 15px;
+    font-size: 13px;
   }
   .lock-btn:hover { border-color: var(--amber); color: var(--amber); }
   .lock-btn.locked {
@@ -199,25 +273,25 @@
   }
 
   /* ── Divider ── */
-  .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 11px 0; }
 
   /* ── Dynamic Rules (lump sums & contribution changes) ── */
-  .rules-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+  .rules-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 
   .rule-row {
-    background: #f8fafc;
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    gap: 8px;
+    gap: 6px;
   }
 
-  .rule-field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 90px; }
+  .rule-field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 80px; }
   .rule-field label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--muted);
     text-transform: uppercase;
@@ -225,12 +299,12 @@
   }
   .rule-field input,
   .rule-field select {
-    padding: 6px 8px;
+    padding: 5px 7px;
     border: 1px solid var(--border);
     border-radius: 5px;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text);
-    background: var(--surface);
+    background: var(--surface-3);
     outline: none;
     width: 100%;
   }
@@ -239,12 +313,12 @@
 
   .rule-remove {
     background: none;
-    border: 1px solid #fca5a5;
+    border: 1px solid rgba(239,68,68,.3);
     border-radius: 5px;
     color: var(--red);
-    font-size: 14px;
-    width: 28px;
-    height: 28px;
+    font-size: 13px;
+    width: 26px;
+    height: 26px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -253,126 +327,132 @@
     transition: background .12s;
     align-self: flex-end;
   }
-  .rule-remove:hover { background: #fee2e2; }
+  .rule-remove:hover { background: var(--red-glow); }
 
   .add-rule-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 12px;
-    border: 1.5px dashed var(--accent);
+    gap: 5px;
+    padding: 6px 10px;
+    border: 1.5px dashed var(--border-lt);
     border-radius: 6px;
     background: none;
-    color: var(--accent);
-    font-size: 13px;
+    color: var(--muted-lt);
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     width: 100%;
     justify-content: center;
-    transition: background .12s;
+    transition: border-color .12s, color .12s;
   }
-  .add-rule-btn:hover { background: #eff6ff; }
+  .add-rule-btn:hover { border-color: var(--accent); color: var(--accent-lt); }
 
   /* ── Calculate Button ── */
   .calc-btn {
     width: 100%;
-    padding: 13px;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--blue-lt) 100%);
+    padding: 11px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-lt) 100%);
     color: #fff;
     border: none;
     border-radius: var(--radius);
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     letter-spacing: .3px;
-    box-shadow: 0 2px 8px rgba(43,125,233,.35);
-    transition: opacity .15s, transform .1s;
+    box-shadow: 0 2px 10px var(--accent-glow-md);
+    transition: opacity .15s, transform .1s, box-shadow .15s;
   }
-  .calc-btn:hover { opacity: .93; transform: translateY(-1px); }
+  .calc-btn:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow-md); }
   .calc-btn:active { transform: translateY(0); }
 
   /* ── Summary Metrics ── */
   .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 9px;
   }
   .metric-card {
-    background: #f8fafc;
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 12px 14px;
+    padding: 10px 11px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
   .metric-label {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: .4px;
+    letter-spacing: .5px;
   }
   .metric-value {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
-    color: var(--navy);
+    color: var(--text);
   }
-  .metric-value.placeholder { color: #cbd5e1; font-size: 16px; }
+  .metric-value.placeholder { color: var(--border-lt); font-size: 15px; }
   .metric-sub {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
   }
-  .metric-card.highlight { border-color: var(--teal); background: #f0fdfa; }
-  .metric-card.highlight .metric-value { color: var(--teal); }
-  .metric-card.warn { border-color: var(--amber); background: var(--locked-bg); }
+  .metric-card.highlight {
+    border-color: rgba(16,185,129,.25);
+    background: linear-gradient(135deg, var(--green-glow) 0%, var(--surface-2) 100%);
+  }
+  .metric-card.highlight .metric-value { color: var(--green); }
+  .metric-card.warn {
+    border-color: rgba(245,158,11,.25);
+    background: linear-gradient(135deg, var(--amber-glow) 0%, var(--surface-2) 100%);
+  }
   .metric-card.warn .metric-value { color: var(--amber); }
 
   /* ── Scenario Panel ── */
   .scenario-tabs {
     display: flex;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
-    margin-bottom: 12px;
+    margin-bottom: 9px;
   }
   .scenario-tab {
-    padding: 6px 14px;
+    padding: 4px 12px;
     border-radius: 20px;
     border: 1.5px solid var(--border);
-    background: var(--surface);
-    font-size: 12px;
+    background: var(--surface-2);
+    font-size: 11px;
     font-weight: 600;
     color: var(--muted);
     cursor: pointer;
     transition: all .15s;
   }
   .scenario-tab.active {
-    background: var(--navy);
-    border-color: var(--navy);
+    background: var(--accent);
+    border-color: var(--accent);
     color: #fff;
   }
-  .scenario-tab:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
+  .scenario-tab:hover:not(.active) { border-color: var(--accent-lt); color: var(--accent-lt); }
 
   .scenario-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
   }
   .btn-sm {
-    padding: 6px 12px;
+    padding: 5px 10px;
     border-radius: 5px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     cursor: pointer;
     border: 1.5px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
+    background: var(--surface-2);
+    color: var(--muted-lt);
     transition: all .12s;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
   }
-  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent-lt); }
   .btn-sm.primary {
     background: var(--accent);
     border-color: var(--accent);
@@ -381,43 +461,43 @@
   .btn-sm.primary:hover { opacity: .88; }
 
   .scenario-compare-placeholder {
-    background: #f8fafc;
+    background: var(--surface-2);
     border: 1px dashed var(--border);
     border-radius: 6px;
-    padding: 28px;
+    padding: 18px;
     text-align: center;
     color: var(--muted);
-    font-size: 13px;
-    margin-top: 12px;
+    font-size: 12px;
+    margin-top: 9px;
   }
 
   /* ── Charts ── */
   .charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 10px;
   }
   .chart-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px;
-    min-height: 220px;
+    padding: 11px;
+    min-height: 195px;
     display: flex;
     flex-direction: column;
   }
   .chart-title {
-    font-size: 12px;
+    font-size: 10.5px;
     font-weight: 700;
-    color: var(--navy);
+    color: var(--muted-lt);
     text-transform: uppercase;
     letter-spacing: .4px;
-    margin-bottom: 12px;
+    margin-bottom: 7px;
   }
   .chart-canvas-wrap {
     flex: 1;
     position: relative;
-    min-height: 160px;
+    min-height: 145px;
   }
   .chart-placeholder {
     display: flex;
@@ -425,18 +505,50 @@
     justify-content: center;
     height: 100%;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
-  .chart-placeholder .ph-icon { font-size: 28px; opacity: .3; }
+  .chart-placeholder .ph-icon { font-size: 24px; opacity: .2; }
 
-  /* ── Amortization Table ── */
+  /* ── Amortization Table (collapsible section) ── */
+  .table-section-header {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: background .15s;
+    user-select: none;
+  }
+  .table-section-header:hover { background: var(--surface-2); }
+  .table-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 600;
+    font-size: 11.5px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .table-toggle-chevron {
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform .2s ease;
+  }
+  .table-section.expanded .table-toggle-chevron { transform: rotate(90deg); }
+  .table-inner { display: none; margin-top: 8px; }
+  .table-section.expanded .table-inner { display: block; }
+
   .table-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 8px;
+    margin-bottom: 9px;
     flex-wrap: wrap;
   }
   .table-toggle {
@@ -446,17 +558,17 @@
     overflow: hidden;
   }
   .table-toggle button {
-    padding: 5px 14px;
+    padding: 4px 12px;
     border: none;
-    background: var(--surface);
-    font-size: 12px;
+    background: var(--surface-2);
+    font-size: 11px;
     font-weight: 600;
     color: var(--muted);
     cursor: pointer;
     transition: all .12s;
   }
   .table-toggle button.active {
-    background: var(--navy);
+    background: var(--accent);
     color: #fff;
   }
 
@@ -464,89 +576,99 @@
     overflow-x: auto;
     border-radius: 6px;
     border: 1px solid var(--border);
+    max-height: 420px;
+    overflow-y: auto;
   }
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 12px;
     min-width: 900px;
   }
   thead th {
-    background: var(--navy);
-    color: #fff;
-    padding: 9px 12px;
+    background: var(--surface-3);
+    color: var(--muted-lt);
+    padding: 8px 10px;
     text-align: right;
-    font-weight: 600;
-    font-size: 11px;
+    font-weight: 700;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .3px;
     white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
   thead th:first-child { text-align: left; }
   tbody td {
-    padding: 7px 12px;
+    padding: 6px 10px;
     text-align: right;
-    border-bottom: 1px solid #f1f5f9;
-    color: var(--text);
+    border-bottom: 1px solid rgba(42,45,62,.8);
+    color: var(--text-dim);
     white-space: nowrap;
   }
-  tbody td:first-child { text-align: left; color: var(--muted); font-weight: 600; }
-  tbody tr:hover { background: #f8fafc; }
+  tbody td:first-child { text-align: left; color: var(--muted-lt); font-weight: 600; }
+  tbody tr:nth-child(even) { background: rgba(30,33,48,.5); }
+  tbody tr:hover { background: rgba(99,102,241,.07); }
   tbody tr:last-child td { border-bottom: none; }
 
   .table-placeholder {
-    padding: 40px;
+    padding: 32px;
     text-align: center;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
   }
 
   /* ── Responsive ── */
   @media (max-width: 960px) {
-    .app-body {
+    .app-body, .app-body.sidebar-collapsed {
       grid-template-columns: 1fr;
-      padding: 16px;
+      padding: 12px;
     }
     .charts-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 600px) {
-    .app-header { padding: 14px 16px; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .app-header { padding: 8px 14px; flex-direction: column; align-items: flex-start; gap: 4px; height: auto; }
     .metrics-grid { grid-template-columns: 1fr 1fr; }
   }
 
   /* ── Scenario Comparison Table ── */
-  .sc-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
-  .sc-table th, .sc-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-  .sc-table thead th { background: var(--navy); color: #fff; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .3px; text-align: center; }
+  .sc-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 11px; }
+  .sc-table th, .sc-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  .sc-table thead th {
+    background: var(--surface-3); color: var(--muted-lt); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .3px; text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
   .sc-table thead th:first-child { text-align: left; }
-  .sc-table tbody td { text-align: center; }
+  .sc-table tbody td { text-align: center; color: var(--text-dim); }
   .sc-table tbody td:first-child { text-align: left; color: var(--muted); font-weight: 600;
-    font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
-  .sc-table tbody tr:hover { background: #f8fafc; }
-  .sc-table .sc-best { color: var(--green); font-weight: 700; }
+    font-size: 10px; text-transform: uppercase; letter-spacing: .3px; }
+  .sc-table tbody tr:hover { background: rgba(99,102,241,.05); }
+  .sc-table .sc-best  { color: var(--green); font-weight: 700; }
   .sc-table .sc-worst { color: var(--red); }
 
   .scenario-tab-wrap { display: flex; align-items: center; gap: 4px; }
   .scenario-tab-del { background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 13px; padding: 0 2px; line-height: 1; opacity: .7; }
+    font-size: 12px; padding: 0 2px; line-height: 1; opacity: .7; }
   .scenario-tab-del:hover { color: var(--red); opacity: 1; }
 
   /* ── Featured total-payment card ── */
   .metric-featured {
     grid-column: span 2;
-    border-color: var(--accent);
-    background: linear-gradient(135deg, #eff6ff 0%, #f0f4f8 100%);
+    border-color: rgba(99,102,241,.3);
+    background: linear-gradient(135deg, rgba(99,102,241,.09) 0%, var(--surface-2) 100%);
   }
-  .metric-featured .metric-value { color: var(--accent); font-size: 26px; }
-  .metric-featured .metric-label { color: var(--blue); }
+  .metric-featured .metric-value { color: var(--accent-lt); font-size: 22px; }
+  .metric-featured .metric-label { color: var(--accent-lt); }
   .metric-breakdown {
     display: none;
     align-items: stretch;
     gap: 0;
-    margin-top: 8px;
+    margin-top: 6px;
     border-top: 1px solid var(--border);
-    padding-top: 8px;
+    padding-top: 6px;
   }
   .metric-breakdown.visible { display: flex; }
   .breakdown-chip {
@@ -554,120 +676,119 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 4px 8px;
+    padding: 3px 6px;
   }
-  .breakdown-chip + .breakdown-chip {
-    border-left: 1px solid var(--border);
-  }
+  .breakdown-chip + .breakdown-chip { border-left: 1px solid var(--border); }
   .breakdown-chip-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .4px;
     color: var(--muted);
   }
   .breakdown-chip-value {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
-    color: var(--text);
+    color: var(--text-dim);
   }
   .breakdown-plus {
     align-self: center;
-    font-size: 16px;
+    font-size: 14px;
     color: var(--muted);
-    padding: 0 4px;
+    padding: 0 3px;
     flex-shrink: 0;
   }
 
   /* ── Housing budget pre-calculate subtotal ── */
   .housing-subtotal {
-    background: #f0f9ff;
-    border: 1.5px solid #7dd3fc;
+    background: rgba(99,102,241,.05);
+    border: 1px solid rgba(99,102,241,.18);
     border-radius: 6px;
-    padding: 12px 14px;
-    margin-top: 12px;
+    padding: 9px 11px;
+    margin-top: 9px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
   }
   .hs-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: 12.5px;
+    font-size: 11.5px;
     color: var(--muted);
   }
   .hs-row .hs-label { font-weight: 500; }
-  .hs-row .hs-val   { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-  .hs-divider { border: none; border-top: 1px solid #bae6fd; margin: 3px 0; }
+  .hs-row .hs-val   { font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .hs-divider { border: none; border-top: 1px solid var(--border); margin: 2px 0; }
   .hs-total {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
-    color: #0c4a6e;
+    color: var(--accent-lt);
   }
   .hs-lumps {
-    margin-top: 6px;
-    font-size: 11.5px;
-    color: var(--blue-lt);
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
     font-style: italic;
-    line-height: 1.6;
+    line-height: 1.5;
   }
 
   /* ── Housing metric card (summary) ── */
   .metric-card.housing {
     grid-column: span 2;
-    border-color: #7dd3fc;
-    background: linear-gradient(135deg, #f0f9ff 0%, #f0f4f8 100%);
+    border-color: rgba(20,184,166,.25);
+    background: linear-gradient(135deg, var(--teal-glow) 0%, var(--surface-2) 100%);
   }
-  .metric-card.housing .metric-label { color: #0369a1; }
-  .metric-card.housing .metric-value  { color: #0c4a6e; font-size: 22px; }
+  .metric-card.housing .metric-label { color: var(--teal); }
+  .metric-card.housing .metric-value  { color: var(--teal); font-size: 18px; }
   .housing-range-sub {
-    font-size: 11px;
-    color: #0369a1;
+    font-size: 10px;
+    color: var(--teal);
     margin-top: 2px;
     display: flex;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
   }
   .housing-range-tag {
-    background: #e0f2fe;
-    border: 1px solid #bae6fd;
+    background: rgba(20,184,166,.10);
+    border: 1px solid rgba(20,184,166,.25);
     border-radius: 4px;
-    padding: 1px 6px;
+    padding: 1px 5px;
     font-weight: 600;
   }
 
   /* ── Period separator row (Draw → Repayment) ── */
   tr.period-separator td {
-    background: var(--navy);
-    color: #fff;
-    font-size: 11px;
+    background: var(--surface-3);
+    color: var(--accent-lt);
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .5px;
-    padding: 5px 12px;
+    padding: 4px 10px;
     text-align: center;
-    border: none;
+    border-top: 1px solid rgba(99,102,241,.3);
+    border-bottom: 1px solid rgba(99,102,241,.3);
   }
-  tr.row-draw-period td { background: #fafcff; }
-  tr.row-repayment-period td { background: #fafffe; }
+  tr.row-draw-period td     { background: transparent; }
+  tr.row-repayment-period td { background: rgba(20,184,166,.04); }
 
   /* ── Utility ── */
   .section-note {
-    font-size: 11px;
+    font-size: 10.5px;
     color: var(--muted);
-    margin-top: -8px;
-    margin-bottom: 10px;
+    margin-top: -5px;
+    margin-bottom: 8px;
     font-style: italic;
   }
   .badge {
     display: inline-block;
-    padding: 2px 7px;
+    padding: 1px 6px;
     border-radius: 10px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     background: var(--accent);
     color: #fff;
@@ -676,35 +797,30 @@
   .badge.amber { background: var(--amber); }
 
   /* ── Insights panel ── */
-  .insights-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
+  .insights-list { display: flex; flex-direction: column; gap: 7px; }
   .insight-placeholder {
     color: var(--muted);
     font-style: italic;
-    font-size: 13px;
-    padding: 6px 0;
+    font-size: 12px;
+    padding: 4px 0;
   }
   .insight-item {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: flex-start;
-    padding: 10px 12px;
-    border-radius: var(--radius);
-    border-left: 4px solid var(--border);
-    background: var(--surface);
-    box-shadow: var(--shadow);
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-left: 3px solid var(--border);
+    background: var(--surface-2);
   }
-  .insight-item.info    { border-left-color: var(--accent); background: #f0f7ff; }
-  .insight-item.success { border-left-color: var(--green);  background: #f0fdf4; }
-  .insight-item.warn    { border-left-color: var(--amber);  background: #fffbeb; }
-  .insight-item.danger  { border-left-color: var(--red);    background: #fff5f5; }
-  .insight-icon { font-size: 18px; line-height: 1.3; flex-shrink: 0; }
-  .insight-body { display: flex; flex-direction: column; gap: 2px; }
-  .insight-headline { font-weight: 600; font-size: 13px; color: var(--text); }
-  .insight-detail   { font-size: 12px; color: var(--muted); }
+  .insight-item.info    { border-left-color: var(--accent);  background: rgba(99,102,241,.06); }
+  .insight-item.success { border-left-color: var(--green);   background: var(--green-glow); }
+  .insight-item.warn    { border-left-color: var(--amber);   background: var(--amber-glow); }
+  .insight-item.danger  { border-left-color: var(--red);     background: var(--red-glow); }
+  .insight-icon { font-size: 15px; line-height: 1.3; flex-shrink: 0; }
+  .insight-body { display: flex; flex-direction: column; gap: 1px; }
+  .insight-headline { font-weight: 600; font-size: 12px; color: var(--text); }
+  .insight-detail   { font-size: 11px; color: var(--muted-lt); }
 </style>
 </head>
 <body>
@@ -722,10 +838,41 @@
 <!-- ══════════════════════════════════════════════════
      MAIN BODY
 ════════════════════════════════════════════════════ -->
-<div class="app-body">
+<div class="app-body sidebar-collapsed">
 
   <!-- ════════════ LEFT PANEL ════════════ -->
-  <aside class="left-panel">
+  <aside class="left-panel" id="leftPanel">
+
+    <!-- Collapsed peek (visible when sidebar-collapsed) -->
+    <div class="sidebar-peek">
+      <button class="sidebar-expand-btn" onclick="toggleSidebar()">
+        <span>⚙ Parameters</span><span class="chevron">▶</span>
+      </button>
+      <div class="peek-group">
+        <div class="peek-group-header">Core</div>
+        <div class="peek-row"><span class="peek-lbl">Rate</span><span class="peek-val" id="pk-rate">8.75%</span></div>
+        <div class="peek-row"><span class="peek-lbl">Debt</span><span class="peek-val" id="pk-debt">$250,000</span></div>
+        <div class="peek-row"><span class="peek-lbl">Min %</span><span class="peek-val" id="pk-minPmt">1%</span></div>
+        <div class="peek-row"><span class="peek-lbl">Payoff</span><span class="peek-val" id="pk-payoffMo">—</span></div>
+      </div>
+      <div class="peek-group">
+        <div class="peek-group-header">Budget</div>
+        <div class="peek-row"><span class="peek-lbl">Target</span><span class="peek-val" id="pk-target">—</span></div>
+        <div class="peek-row"><span class="peek-lbl">Fixed</span><span class="peek-val" id="pk-fixed">$2,307</span></div>
+      </div>
+      <div class="peek-group">
+        <div class="peek-group-header">Lump Sum</div>
+        <div class="peek-row"><span class="peek-lbl">Solver $</span><span class="peek-val" id="pk-lumpSum">—</span></div>
+      </div>
+      <button class="calc-btn" style="margin-top:4px;font-size:12px;padding:9px" onclick="calculate(); syncCollapsedValues()">⚡ Calculate</button>
+    </div>
+
+    <!-- Full sidebar content (hidden when sidebar-collapsed) -->
+    <div class="sidebar-content">
+      <div class="sidebar-header">
+        <span class="sidebar-header-title">⚙ Parameters</span>
+        <button class="sidebar-collapse-btn" onclick="toggleSidebar()">◀ Collapse</button>
+      </div>
 
     <!-- ── Core Parameters ── -->
     <div class="card">
@@ -949,10 +1096,11 @@
     </div><!-- /Lump Sum Contributions -->
 
     <!-- ── Calculate ── -->
-    <button class="calc-btn" onclick="calculate()">
+    <button class="calc-btn" onclick="calculate(); syncCollapsedValues()">
       ⚡ Calculate Payoff Model
     </button>
 
+    </div><!-- /sidebar-content -->
   </aside><!-- /left-panel -->
 
   <!-- ════════════ RIGHT PANEL ════════════ -->
@@ -1091,9 +1239,12 @@
     </div><!-- /Charts -->
 
     <!-- ── Amortization Table ── -->
-    <div class="card">
-      <div class="card-header"><span class="icon">📋</span> Amortization Schedule</div>
-      <div class="card-body">
+    <div class="table-section" id="amortSection">
+      <div class="table-section-header" onclick="toggleAmortTable()">
+        <div class="table-section-title"><span>📋</span> Amortization Schedule</div>
+        <span class="table-toggle-chevron">▶</span>
+      </div>
+      <div class="table-inner">
 
         <div class="table-controls">
           <div class="table-toggle">
@@ -1114,7 +1265,7 @@
                 <th>Addl. Contrib.</th>
                 <th>Sched. Lump Sum</th>
                 <th>Solver Lump Sum</th>
-                <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid #7dd3fc">Housing Total</th>
+                <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
                 <th>Total Payment</th>
                 <th>Principal</th>
                 <th>Interest</th>
@@ -1267,7 +1418,7 @@ function addLumpSumRule() {
       </div>
     </div>
     <button class="rule-remove" title="Remove" onclick="removeRule('${id}')">✕</button>
-    <div class="ls-custom-section-${n}" style="display:none;flex-basis:100%;margin-top:4px;padding:8px 10px;background:#f1f5f9;border-radius:5px;border:1px solid #cbd5e1;">
+    <div class="ls-custom-section-${n}" style="display:none;flex-basis:100%;margin-top:4px;padding:8px 10px;background:var(--surface-3);border-radius:5px;border:1px solid var(--border);">
       <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Custom conditions — use one or both (lump sum fires at any matching month)</div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
         <div style="display:flex;flex-direction:column;gap:3px;">
@@ -1621,7 +1772,7 @@ function renderMonthlyTable(schedule, tbody) {
       : '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.75">Repay</span>');
     if (r.contribChanged)  badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
     if (r.hasScheduledLS)  badges.push('<span class="badge" style="background:#7c3aed;margin-left:4px">Sched. LS</span>');
-    if (r.hasSolverLS)     badges.push('<span class="badge" style="background:var(--blue-lt);margin-left:4px">Solver LS</span>');
+    if (r.hasSolverLS)     badges.push('<span class="badge" style="background:var(--accent-lt);margin-left:4px">Solver LS</span>');
     if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
 
     const housingPmt = round2(lastFixedObligations + r.minPmt + r.addlContrib);
@@ -1740,13 +1891,20 @@ function renderCharts(schedule) {
   const balances  = sampled.map(r => r.endBal);
   const cumInterest = sampled.map(r => r.cumulInterest);
 
-  const gridColor = 'rgba(0,0,0,0.06)';
+  const gridColor = 'rgba(255,255,255,0.06)';
+  const tickColor = '#64748B';
   const tooltipStyle = {
-    backgroundColor: '#1a2a4a',
-    titleColor: '#fff',
-    bodyColor: '#cbd5e1',
+    backgroundColor: '#1E2130',
+    titleColor: '#E2E8F0',
+    bodyColor: '#94A3B8',
+    borderColor: '#2A2D3E',
+    borderWidth: 1,
     padding: 10,
     cornerRadius: 6,
+  };
+  const axisStyle = {
+    ticks: { color: tickColor, font: { size: 10 } },
+    grid: { color: gridColor }
   };
 
   // ── Balance Chart ──
@@ -1758,8 +1916,8 @@ function renderCharts(schedule) {
       datasets: [{
         label: 'Remaining Balance',
         data: balances,
-        borderColor: '#2b7de9',
-        backgroundColor: 'rgba(43,125,233,0.10)',
+        borderColor: '#6366F1',
+        backgroundColor: 'rgba(99,102,241,0.12)',
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.35,
@@ -1776,10 +1934,10 @@ function renderCharts(schedule) {
         }
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
+        x: { ...axisStyle, ticks: { ...axisStyle.ticks, maxTicksLimit: 10 } },
         y: {
-          ticks: { callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v), font: { size: 11 } },
-          grid: { color: gridColor }
+          ...axisStyle,
+          ticks: { ...axisStyle.ticks, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v) }
         }
       }
     }
@@ -1794,8 +1952,8 @@ function renderCharts(schedule) {
       datasets: [{
         label: 'Cumulative Interest',
         data: cumInterest,
-        borderColor: '#d97706',
-        backgroundColor: 'rgba(217,119,6,0.10)',
+        borderColor: '#F59E0B',
+        backgroundColor: 'rgba(245,158,11,0.10)',
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.35,
@@ -1812,10 +1970,10 @@ function renderCharts(schedule) {
         }
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
+        x: { ...axisStyle, ticks: { ...axisStyle.ticks, maxTicksLimit: 10 } },
         y: {
-          ticks: { callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v), font: { size: 11 } },
-          grid: { color: gridColor }
+          ...axisStyle,
+          ticks: { ...axisStyle.ticks, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v) }
         }
       }
     }
@@ -2551,8 +2709,8 @@ function showError(msg) {
     el = document.createElement('div');
     el.id = 'calcError';
     el.style.cssText = `
-      background:#fee2e2; border:1px solid #fca5a5; border-radius:6px;
-      color:#991b1b; padding:10px 14px; font-size:13px; margin-top:10px;
+      background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.3); border-radius:6px;
+      color:#FCA5A5; padding:10px 14px; font-size:13px; margin-top:10px;
       line-height:1.6;
     `;
     document.querySelector('.calc-btn').insertAdjacentElement('afterend', el);
@@ -2570,9 +2728,9 @@ function clearError() {
   const s = document.createElement('style');
   s.textContent = `
     tr.row-contrib-change td:first-child { border-left: 3px solid var(--teal); }
-    tr.row-lump-sum       td:first-child { border-left: 3px solid var(--blue-lt); }
-    tr.row-contrib-change.row-lump-sum td:first-child { border-left: 3px solid var(--blue); }
-    tr.row-payoff { background: #f0fdf4 !important; }
+    tr.row-lump-sum       td:first-child { border-left: 3px solid var(--accent-lt); }
+    tr.row-contrib-change.row-lump-sum td:first-child { border-left: 3px solid var(--accent); }
+    tr.row-payoff { background: rgba(16,185,129,.08) !important; }
   `;
   document.head.appendChild(s);
 })();
@@ -2737,7 +2895,7 @@ function renderScenarioCompare() {
     </tr></thead><tbody>`;
 
   // Param rows (grey section header)
-  html += `<tr><td colspan="${scenarios.length + 1}" style="background:#f1f5f9;font-size:10px;color:var(--navy);font-weight:700;letter-spacing:.5px;padding:6px 12px;">INPUTS</td></tr>`;
+  html += `<tr><td colspan="${scenarios.length + 1}" style="background:var(--surface-3);font-size:10px;color:var(--muted-lt);font-weight:700;letter-spacing:.5px;padding:6px 12px;">INPUTS</td></tr>`;
   for (const p of PARAMS) {
     html += `<tr><td>${p.label}</td>`;
     for (const sc of scenarios) {
@@ -2749,7 +2907,7 @@ function renderScenarioCompare() {
   }
 
   // Outcome rows
-  html += `<tr><td colspan="${scenarios.length + 1}" style="background:#f1f5f9;font-size:10px;color:var(--navy);font-weight:700;letter-spacing:.5px;padding:6px 12px;">RESULTS</td></tr>`;
+  html += `<tr><td colspan="${scenarios.length + 1}" style="background:var(--surface-3);font-size:10px;color:var(--muted-lt);font-weight:700;letter-spacing:.5px;padding:6px 12px;">RESULTS</td></tr>`;
   for (const m of METRICS) {
     const vals = scenarios.map(sc => sc.summary[m.key] || '—');
     // Determine best/worst for numeric metrics
@@ -2900,6 +3058,34 @@ function exportScenarioCSV() {
 
   const date = new Date().toISOString().slice(0, 10);
   downloadCSV(`heloc-scenarios-${date}.csv`, rows);
+}
+
+// ── Sidebar collapse / expand ─────────────────────
+function toggleSidebar() {
+  syncCollapsedValues();
+  document.querySelector('.app-body').classList.toggle('sidebar-collapsed');
+}
+
+function syncCollapsedValues() {
+  const map = [
+    ['interestRate',      'pk-rate',     v => v ? v + '%'  : '—'],
+    ['debtAmount',        'pk-debt',     v => v ? '$' + v  : '—'],
+    ['minPaymentPct',     'pk-minPmt',   v => v ? v + '%'  : '—'],
+    ['payoffMonths',      'pk-payoffMo', v => v ? v + ' mo': '—'],
+    ['targetHousingPmt',  'pk-target',   v => v ? '$' + v  : '—'],
+    ['fixedObligations',  'pk-fixed',    v => v ? '$' + v  : '—'],
+    ['lumpSumAmount',     'pk-lumpSum',  v => v ? '$' + v  : '—'],
+  ];
+  map.forEach(([inputId, pkId, fmt]) => {
+    const inp = document.getElementById(inputId);
+    const pk  = document.getElementById(pkId);
+    if (inp && pk) pk.textContent = fmt(inp.value);
+  });
+}
+
+// ── Amortization table collapse / expand ─────────
+function toggleAmortTable() {
+  document.getElementById('amortSection').classList.toggle('expanded');
 }
 </script>
 
