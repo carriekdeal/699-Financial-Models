@@ -900,7 +900,43 @@
     <div class="card">
       <div class="card-header"><span class="icon">💰</span> Lump Sum Contributions</div>
       <div class="card-body">
-        <p class="section-note">Applied on top of the monthly target — does not change the housing total.</p>
+
+        <!-- Solver lump sum (lockable) -->
+        <div class="field-row" id="row-lumpSum">
+          <div class="field-inner">
+            <span class="field-label">Solver Lump Sum Amount</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="number" class="field-input has-prefix" id="lumpSumAmount"
+                     placeholder="0.00" min="0" step="100"
+                     oninput="updateHousingSubtotal()">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-lumpSum" title="Unlocked — solver will find the minimum amount"
+                  onclick="toggleLock('lumpSum')">🔓</button>
+        </div>
+
+        <div class="field-row" id="row-solverLsConfig" style="margin-top:4px;">
+          <div class="field-label">Cadence &amp; Start Month</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="solverLsCadence" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;">
+              <option value="biannually" selected>Every 6 months</option>
+              <option value="annually">Annually</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="once">One-time</option>
+            </select>
+            <input type="number" id="solverLsStart" value="1" min="1" step="1"
+                   title="Month number for first lump sum"
+                   style="width:76px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;">
+          </div>
+        </div>
+
+        <p class="section-note" style="margin-top:6px;">
+          When <strong>unlocked</strong>, the solver finds the minimum per-occurrence amount needed to satisfy locked constraints. Lock it to fix the amount.
+        </p>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px;">
+        <p class="section-note" style="margin-bottom:6px;">One-off rules (applied on top of solver amount):</p>
 
         <div class="rules-list" id="lumpSumRulesList">
           <!-- JS-rendered lump sum rows appear here -->
@@ -1838,10 +1874,11 @@ function payoffDateToMonths(startDateStr, payoffDateStr) {
 }
 
 // Return the first field name from the priority list that is NOT locked
-const SOLVE_PRIORITY = ['targetHousingPmt', 'minPmt', 'rate', 'debt'];
-const PARAM_KEY = { targetHousingPmt: 'housingTarget', minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
+const SOLVE_PRIORITY = ['targetHousingPmt', 'lumpSum', 'minPmt', 'rate', 'debt'];
+const PARAM_KEY = { targetHousingPmt: 'housingTarget', lumpSum: null /* special */, minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
 const SOLVE_LABEL = {
   targetHousingPmt: 'Target Monthly Housing Payment',
+  lumpSum:          'Bi-Annual Lump Sum Amount',
   minPmt:           'Minimum Monthly Payment %',
   rate:             'Annual Interest Rate',
   debt:             'Debt Amount',
@@ -1853,7 +1890,7 @@ function getFirstFreeVar() {
 
 // Write solved value back to the appropriate input field
 function applySolvedValue(field, value) {
-  const ids = { targetHousingPmt: 'targetHousingPmt', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
+  const ids = { targetHousingPmt: 'targetHousingPmt', lumpSum: 'lumpSumAmount', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
   const el  = document.getElementById(ids[field]);
   if (!el) return;
   el.value = value.toFixed(field === 'minPmt' ? 4 : 2);
@@ -1864,7 +1901,7 @@ function applySolvedValue(field, value) {
 
 function showSolvedBadge(field) {
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
-  const ids = { targetHousingPmt: 'row-targetHousingPmt', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
+  const ids = { targetHousingPmt: 'row-targetHousingPmt', lumpSum: 'row-lumpSum', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
   const row = document.getElementById(ids[field]);
   if (!row) return;
   const lbl = row.querySelector('.field-label');
@@ -1908,13 +1945,13 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRul
 }
 
 // ── 8d: Bidirectional solver ─────────────────────
-function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr) {
+function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr, solverLsConfig) {
   const freeVar = getFirstFreeVar();
 
   if (!freeVar) {
     showError(
       'All input fields are locked — unlock at least one of: ' +
-      '<strong>Target Housing Payment</strong>, <strong>Min. Payment %</strong>, ' +
+      '<strong>Target Housing Payment</strong>, <strong>Lump Sum Amount</strong>, <strong>Min. Payment %</strong>, ' +
       '<strong>Interest Rate</strong>, or <strong>Debt Amount</strong> ' +
       'so the solver has a variable to adjust.'
     );
@@ -1923,8 +1960,8 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
 
   // Validate every input that is NOT being solved for
   const errs = [];
-  if (freeVar !== 'rate' && (isNaN(rate)   || rate   <= 0)) errs.push('Interest Rate is required and must be > 0.');
-  if (freeVar !== 'debt' && (isNaN(debt)   || debt   <= 0)) errs.push('Debt Amount is required and must be > 0.');
+  if (freeVar !== 'rate'   && (isNaN(rate)   || rate   <= 0)) errs.push('Interest Rate is required and must be > 0.');
+  if (freeVar !== 'debt'   && (isNaN(debt)   || debt   <= 0)) errs.push('Debt Amount is required and must be > 0.');
   if (freeVar !== 'minPmt' && (isNaN(minPct) || minPct <= 0)) errs.push('Minimum Monthly Payment % is required and must be > 0.');
   if (errs.length) { showError(errs.join('<br>')); return; }
 
@@ -1938,20 +1975,47 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     contribRules: [], lsRules, startDateStr
   };
 
-  // Objective function: fn(x) → the metric we are targeting
-  const objFn = x => {
-    const s = runAmortization({ ...baseParams, [paramField]: x });
-    if (type === 'months')   return s.length;
-    if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
-  };
-
   // Solver bounds and tolerance by free variable
   const bounds = {
-    targetHousingPmt: { lo: 0, hi: (debt || 1e5) * 20, tol: 0.5 },
-    minPmt:           { lo: 0.0001, hi: 99.99,          tol: 0.0001 },
-    rate:             { lo: 0.001,  hi: 99.99,           tol: 0.001  },
-    debt:             { lo: 1,      hi: 1e8,              tol: 1.0   },
+    targetHousingPmt: { lo: 0,      hi: (debt || 1e5) * 20, tol: 0.5    },
+    lumpSum:          { lo: 0,      hi: (debt || 1e5) * 10, tol: 1.0    },
+    minPmt:           { lo: 0.0001, hi: 99.99,               tol: 0.0001 },
+    rate:             { lo: 0.001,  hi: 99.99,                tol: 0.001  },
+    debt:             { lo: 1,      hi: 1e8,                  tol: 1.0    },
   };
+
+  // Objective function: fn(x) → the metric we are targeting
+  let objFn;
+  if (freeVar === 'lumpSum') {
+    // Special case: build lsRules dynamically so the solver finds minimum per-occurrence amount
+    const { cadence = 'biannually', startMonth = 1, userRules = [] } = solverLsConfig || {};
+    objFn = x => {
+      const solverRule = x > 0 ? [{ amount: x, cadence, startMonth, interval: 6 }] : [];
+      const s = runAmortization({ ...baseParams, lsRules: [...userRules, ...solverRule] });
+      if (type === 'months')   return s.length;
+      if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
+    };
+
+    // Pre-check: does $0 lump sum already satisfy the constraint?
+    const atZero = objFn(0);
+    const alreadyOk = type === 'months' ? atZero <= target : atZero <= target;
+    if (alreadyOk) {
+      applySolvedValue('lumpSum', 0);
+      showSolvedBadge('lumpSum');
+      const noLsParams = { ...baseParams, lsRules: [...userRules] };
+      const schedule = runAmortization(noLsParams);
+      if (!schedule.length) { showError('Solver produced no schedule. Check inputs.'); return; }
+      renderResults(schedule, { ...noLsParams, solverLsAmount: 0, solverLsConfig });
+      return;
+    }
+  } else {
+    objFn = x => {
+      const s = runAmortization({ ...baseParams, [paramField]: x });
+      if (type === 'months')   return s.length;
+      if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
+    };
+  }
+
   const { lo, hi, tol } = bounds[freeVar];
 
   // Pre-check: evaluate at bounds and verify target is bracketed
@@ -2009,8 +2073,17 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   showSolvedBadge(freeVar);
 
   // Final forward pass with solved value
-  const finalParams = { ...baseParams, [paramField]: result.value };
-  const schedule    = runAmortization(finalParams);
+  let finalParams;
+  if (freeVar === 'lumpSum') {
+    const { cadence = 'biannually', startMonth = 1, userRules = [] } = solverLsConfig || {};
+    const solvedAmt  = result.value;
+    const solverRule = solvedAmt > 0 ? [{ amount: solvedAmt, cadence, startMonth, interval: 6 }] : [];
+    const finalRules = [...userRules, ...solverRule];
+    finalParams = { ...baseParams, lsRules: finalRules, solverLsAmount: solvedAmt, solverLsConfig };
+  } else {
+    finalParams = { ...baseParams, [paramField]: result.value };
+  }
+  const schedule = runAmortization(finalParams);
 
   if (!schedule.length) {
     showError('Solver converged but produced no schedule — please verify inputs.');
@@ -2034,14 +2107,25 @@ function updateHousingSubtotal() {
   setText('hs-addl',  addl     !== null ? fmt(addl)     : '—');
   setText('hs-total', target   > 0      ? fmt(target)   : '—');
 
-  // Lump sum display
-  const lsRules = readLumpSumRules();
-  const lumpsEl = document.getElementById('hs-lumps');
-  if (lsRules.length > 0) {
-    const lines = lsRules.map(r => {
-      const cadenceLabel = { once: 'once', annually: 'annually', biannually: 'every 6 mo', quarterly: 'quarterly', custom: `every ${r.interval || '?'} mo` };
-      return `Lump sum: ${fmt(r.amount)} starting month ${r.startMonth} (${cadenceLabel[r.cadence] || r.cadence})`;
-    });
+  // Lump sum display (solver amount + user rules)
+  const userRules    = readLumpSumRules();
+  const solverAmt    = parseFloat(document.getElementById('lumpSumAmount').value) || 0;
+  const solverLocked = lockState['lumpSum'];
+  const lumpsEl      = document.getElementById('hs-lumps');
+  const cadenceLabel = { once: 'once', annually: 'annually', biannually: 'every 6 mo', quarterly: 'quarterly', custom: `every ? mo` };
+  const lines = [];
+  if (solverAmt > 0) {
+    const cadence = document.getElementById('solverLsCadence').value;
+    const start   = document.getElementById('solverLsStart').value || '1';
+    const status  = solverLocked ? 'fixed' : 'solver will find minimum';
+    lines.push(`Solver lump sum: ${fmt(solverAmt)} ${cadenceLabel[cadence] || cadence} from month ${start} (${status})`);
+  } else if (!solverLocked) {
+    lines.push('Solver lump sum: will be calculated when you run Calculate');
+  }
+  userRules.forEach(r => {
+    lines.push(`Rule: ${fmt(r.amount)} starting month ${r.startMonth} (${cadenceLabel[r.cadence] || r.cadence})`);
+  });
+  if (lines.length > 0) {
     lumpsEl.innerHTML = lines.join('<br>');
     lumpsEl.style.display = '';
   } else {
@@ -2050,7 +2134,7 @@ function updateHousingSubtotal() {
 }
 
 // ── 8f: Insights panel ───────────────────────────
-function generateInsights(schedule, params, baseline) {
+function generateInsights(schedule, params, baseline, noLsBaseline) {
   const el = document.getElementById('insightsList');
   if (!el) return;
   if (!schedule.length) { el.innerHTML = '<div class="insight-placeholder">Run a calculation to see insights.</div>'; return; }
@@ -2097,19 +2181,44 @@ function generateInsights(schedule, params, baseline) {
     });
   }
 
-  // 3 — Impact of lump sum contributions
+  // 3 — Lump sum metrics (4 data points when lump sums are present)
   if (hasLumps) {
     const totalLumps = schedule.reduce((s, r) => s + (r.lumpSum || 0), 0);
     const lumpCount  = schedule.filter(r => r.lumpSum > 0).length;
-    const lumpSavedDetail = interestSaved > 0
-      ? ` Contributing ${fmtK(totalLumps)} across ${lumpCount} payment(s).`
-      : '';
-    items.push({
-      type: 'success',
-      icon: '🏦',
-      headline: `Lump sum payments reduce your balance faster`,
-      detail: `Total lump sums: ${fmtK(totalLumps)} across ${lumpCount} occurrence(s)${lumpSavedDetail}`
-    });
+
+    // Interest saved specifically by lump sums vs. a no-lump-sum run
+    const noLsLast     = noLsBaseline && noLsBaseline.length ? noLsBaseline[noLsBaseline.length - 1] : null;
+    const noLsInterest = noLsLast ? noLsLast.cumulInterest : totalInterest;
+    const lsSaved      = round2(noLsInterest - totalInterest);
+
+    // Solved lump sum amount (if the solver found it)
+    const solverAmt = params.solverLsAmount;
+    const hasSolvedLs = solverAmt !== undefined && solverAmt !== null;
+    const cfg = params.solverLsConfig || {};
+    const cadenceLabel = { biannually: 'every 6 months', annually: 'annually', quarterly: 'quarterly', once: 'one-time' };
+    const cadenceStr = cadenceLabel[cfg.cadence] || cfg.cadence || 'bi-annually';
+
+    if (hasSolvedLs) {
+      items.push({
+        type: solverAmt > 0 ? 'success' : 'info',
+        icon: '🏦',
+        headline: solverAmt > 0
+          ? `Minimum lump sum needed: ${fmt(solverAmt)} ${cadenceStr}`
+          : 'No lump sum required to meet your target',
+        detail: solverAmt > 0
+          ? `${lumpCount} payment(s) · ${fmtK(totalLumps)} total applied · ${lsSaved > 0 ? fmtK(lsSaved) + ' interest saved vs. no lump sums' : 'interest savings minimal'}`
+          : 'Your other parameters already satisfy the locked constraint without any lump sum'
+      });
+    } else {
+      items.push({
+        type: 'success',
+        icon: '🏦',
+        headline: `Lump sums: ${lumpCount} payment(s) · ${fmtK(totalLumps)} total applied`,
+        detail: lsSaved > 0
+          ? `${fmtK(lsSaved)} interest saved vs. same scenario without lump sums`
+          : `Lump sums applied but interest savings are negligible at this payment level`
+      });
+    }
   }
 
   // 4 — 50% principal payoff milestone
@@ -2210,8 +2319,13 @@ function renderResults(schedule, params) {
   renderTable(schedule);
   renderCharts(schedule);
   const baseline = runMinOnlyBaseline(params.balance, params.annualRate, params.minPctPerMonth);
+  // Baseline without any lump sums (for computing interest saved by lump sums specifically)
+  const hasAnyLumps = schedule.some(r => r.lumpSum > 0);
+  const noLsBaseline = hasAnyLumps
+    ? runAmortization({ ...params, lsRules: [] })
+    : schedule;
   updateSummary(schedule, params, baseline);
-  generateInsights(schedule, params, baseline);
+  generateInsights(schedule, params, baseline, noLsBaseline);
 }
 
 // ── 8f: Main entry point (Calculate button) ──────
@@ -2226,7 +2340,22 @@ function calculate() {
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
   const targetHousingPmt = parseFloat(document.getElementById('targetHousingPmt').value) || 0;
   const fixedObligation  = parseFloat(document.getElementById('fixedObligations').value) || 0;
-  const lsRules          = readLumpSumRules();
+  const userLsRules      = readLumpSumRules();
+
+  // Solver lump sum config (used when 'lumpSum' is the free variable)
+  const solverLsAmount   = parseFloat(document.getElementById('lumpSumAmount').value) || 0;
+  const solverLsCadence  = document.getElementById('solverLsCadence').value;
+  const solverLsStart    = parseInt(document.getElementById('solverLsStart').value, 10) || 1;
+  const solverLsConfig   = { cadence: solverLsCadence, startMonth: solverLsStart, userRules: userLsRules };
+
+  // When lumpSum is locked (fixed amount), merge it as a rule; otherwise solver decides
+  let lsRules;
+  if (lockState['lumpSum'] && solverLsAmount > 0) {
+    const fixedRule = { amount: solverLsAmount, cadence: solverLsCadence, startMonth: solverLsStart, interval: 6 };
+    lsRules = [...userLsRules, fixedRule];
+  } else {
+    lsRules = userLsRules;
+  }
 
   // Determine which output fields are locked → become solve targets
   const targets = [];
@@ -2274,7 +2403,7 @@ function calculate() {
     runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr);
   } else {
     const { type, target } = targets[0];
-    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr);
+    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr, solverLsConfig);
   }
 }
 
