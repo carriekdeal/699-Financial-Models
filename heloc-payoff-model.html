@@ -1768,10 +1768,10 @@ function renderMonthlyTable(schedule, tbody) {
     let monthLabel = `Month ${r.monthNum}`;
     const badges = [];
     badges.push(r.period === 'draw'
-      ? '<span class="badge" style="background:#0369a1;margin-left:4px;opacity:.75">Draw</span>'
+      ? '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.85">Draw</span>'
       : '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.75">Repay</span>');
     if (r.contribChanged)  badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
-    if (r.hasScheduledLS)  badges.push('<span class="badge" style="background:#7c3aed;margin-left:4px">Sched. LS</span>');
+    if (r.hasScheduledLS)  badges.push('<span class="badge" style="background:var(--accent);margin-left:4px">Sched. LS</span>');
     if (r.hasSolverLS)     badges.push('<span class="badge" style="background:var(--accent-lt);margin-left:4px">Solver LS</span>');
     if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
 
@@ -1782,9 +1782,9 @@ function renderMonthlyTable(schedule, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.minPmt)}</td>
       <td>${r.addlContrib > 0 ? fmt(r.addlContrib) : '—'}</td>
-      <td style="color:#6d28d9">${r.scheduledLumpSum > 0 ? fmt(r.scheduledLumpSum) : '—'}</td>
-      <td style="color:#0369a1">${r.solverLumpSum    > 0 ? fmt(r.solverLumpSum)    : '—'}</td>
-      <td style="border-left:2px solid #bae6fd;font-weight:700;color:#0c4a6e">${fmt(housingPmt)}</td>
+      <td style="color:var(--accent)">${r.scheduledLumpSum > 0 ? fmt(r.scheduledLumpSum) : '—'}</td>
+      <td style="color:var(--teal)">${r.solverLumpSum    > 0 ? fmt(r.solverLumpSum)    : '—'}</td>
+      <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(housingPmt)}</td>
       <td><strong>${fmt(r.totalPmt)}</strong></td>
       <td>${fmt(r.principal)}</td>
       <td>${fmt(r.interest)}</td>
@@ -1807,7 +1807,7 @@ function renderAnnualTable(annualRows, tbody) {
     <th>Total Addl.</th>
     <th title="Scheduled (user-defined) lump sums">Sched. Lump Sums</th>
     <th title="Solver-derived bi-annual lump sums">Solver Lump Sums</th>
-    <th title="Fixed Obligations + Min. HELOC Payments + Additional Contributions" style="border-left:2px solid #7dd3fc">Housing Total</th>
+    <th title="Fixed Obligations + Min. HELOC Payments + Additional Contributions" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
     <th>Total Paid</th>
     <th>Total Principal</th>
     <th>Total Interest</th>
@@ -1835,9 +1835,9 @@ function renderAnnualTable(annualRows, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.totalMinPmt)}</td>
       <td>${r.totalAddl > 0 ? fmt(r.totalAddl) : '—'}</td>
-      <td style="color:#6d28d9">${r.totalScheduledLS > 0 ? fmt(r.totalScheduledLS) : '—'}</td>
-      <td style="color:#0369a1">${r.totalSolverLS    > 0 ? fmt(r.totalSolverLS)    : '—'}</td>
-      <td style="border-left:2px solid #bae6fd;font-weight:700;color:#0c4a6e">${fmt(annualHousing)}</td>
+      <td style="color:var(--accent)">${r.totalScheduledLS > 0 ? fmt(r.totalScheduledLS) : '—'}</td>
+      <td style="color:var(--teal)">${r.totalSolverLS    > 0 ? fmt(r.totalSolverLS)    : '—'}</td>
+      <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(annualHousing)}</td>
       <td><strong>${fmt(r.totalPmt)}</strong></td>
       <td>${fmt(r.totalPrincipal)}</td>
       <td>${fmt(r.totalInterest)}</td>
@@ -1860,7 +1860,7 @@ function restoreMonthlyHeaders() {
     <th>Addl. Contrib.</th>
     <th title="Fixed one-time or recurring payments entered manually">Sched. Lump Sum</th>
     <th title="Minimum bi-annual amount found by solver">Solver Lump Sum</th>
-    <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid #7dd3fc">Housing Total</th>
+    <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
     <th>Total Payment</th>
     <th>Principal</th>
     <th>Interest</th>
@@ -2124,7 +2124,7 @@ function applySolvedValue(field, value) {
   el.value = value.toFixed(field === 'minPmt' ? 4 : 2);
   if (['targetHousingPmt', 'lumpSum', 'debt'].includes(field)) formatCurrencyInput(el);
   el.style.transition = 'background 0.4s';
-  el.style.background = '#d1fae5';
+  el.style.background = 'rgba(16,185,129,.18)';
   setTimeout(() => { el.style.background = ''; updateHousingSubtotal(); }, 1500);
 }
 
