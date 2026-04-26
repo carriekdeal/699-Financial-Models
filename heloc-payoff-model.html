@@ -1693,28 +1693,32 @@ function runAmortization(params) {
   for (let n = 1; n <= limit; n++) {
     if (bal <= 0.005) break;
 
-    const startBal    = bal;
-    const interest    = round2(startBal * monthlyRate);
-    const inRepayment = n > DRAW_MONTHS;
+    const startBal = bal;
 
-    // 1% of outstanding balance applies in both draw and repayment periods
-    const minPmt = round2(startBal * minPctPerMonth / 100);
-
-    // When a housing target is set, derive addl to hold total constant
-    const addl = housingTarget > 0
-      ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
-      : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
+    // Step 1: Get lump sums for this month
     const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n, startDateStr));
     const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n, startDateStr));
     const lumpSum     = round2(scheduledLS + solverLS);
 
-    // Total payment capped so we never overpay
-    let totalPmt = minPmt + addl + lumpSum;
-    const maxPmt = startBal + interest;
+    // Step 2: Apply lump sum as immediate principal reduction before interest
+    const balAfterLS  = Math.max(0, round2(startBal - lumpSum));
+    const inRepayment = n > DRAW_MONTHS;
+
+    // Step 3: All calculations on reduced balance
+    const interest = round2(balAfterLS * monthlyRate);
+    const minPmt   = round2(balAfterLS * minPctPerMonth / 100);
+
+    const addl = housingTarget > 0
+      ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
+      : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
+
+    // totalPmt is housing payment only — lumpSum is tracked separately
+    let totalPmt = minPmt + addl;
+    const maxPmt = round2(balAfterLS + interest);
     if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
 
     const principal = round2(totalPmt - interest);
-    const endBal    = Math.max(0, round2(startBal - principal));
+    const endBal    = Math.max(0, round2(balAfterLS - principal));
     cumulInterest   = round2(cumulInterest + interest);
 
     const contribChanged = (n > 1 && addl !== prevContrib);
@@ -1728,7 +1732,7 @@ function runAmortization(params) {
       addlContrib: addl,
       scheduledLumpSum: scheduledLS,
       solverLumpSum:    solverLS,
-      lumpSum,                        // total: scheduledLS + solverLS
+      lumpSum,                        // immediate principal reduction, separate from totalPmt
       totalPmt,
       principal,
       interest,
@@ -1869,7 +1873,7 @@ function renderMonthlyTable(schedule, tbody) {
       <td style="color:var(--accent)">${r.scheduledLumpSum > 0 ? fmt(r.scheduledLumpSum) : '—'}</td>
       <td style="color:var(--teal)">${r.solverLumpSum    > 0 ? fmt(r.solverLumpSum)    : '—'}</td>
       <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(housingPmt)}</td>
-      <td><strong>${fmt(r.totalPmt)}</strong></td>
+      <td><strong>${fmt(round2(r.totalPmt + r.lumpSum))}</strong></td>
       <td>${fmt(r.principal)}</td>
       <td>${fmt(r.interest)}</td>
       <td>${r.endBal <= 0.005 ? '<strong style="color:var(--green)">$0.00</strong>' : fmt(r.endBal)}</td>
@@ -1922,7 +1926,7 @@ function renderAnnualTable(annualRows, tbody) {
       <td style="color:var(--accent)">${r.totalScheduledLS > 0 ? fmt(r.totalScheduledLS) : '—'}</td>
       <td style="color:var(--teal)">${r.totalSolverLS    > 0 ? fmt(r.totalSolverLS)    : '—'}</td>
       <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(annualHousing)}</td>
-      <td><strong>${fmt(r.totalPmt)}</strong></td>
+      <td><strong>${fmt(round2(r.totalPmt + r.totalLumpSum))}</strong></td>
       <td>${fmt(r.totalPrincipal)}</td>
       <td>${fmt(r.totalInterest)}</td>
       <td>${r.endBal <= 0.005 ? '<strong style="color:var(--green)">$0.00</strong>' : fmt(r.endBal)}</td>
@@ -2073,7 +2077,7 @@ function updateSummary(schedule, params, baseline) {
 
   const last = schedule[schedule.length - 1];
   const totalInterest  = last.cumulInterest;
-  const totalPaid      = schedule.reduce((s, r) => s + r.totalPmt, 0);
+  const totalPaid      = schedule.reduce((s, r) => s + r.totalPmt + r.lumpSum, 0);
   const payoffMonths   = schedule.length;
   const startDateStr   = params.startDateStr;
   const payoffDateFull = monthNumToFullDate(startDateStr, payoffMonths);
