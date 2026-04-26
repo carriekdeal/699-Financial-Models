@@ -347,6 +347,34 @@
   }
   .add-rule-btn:hover { border-color: var(--accent); color: var(--accent-lt); }
 
+  /* ── Confirmed lump sum rules ── */
+  .ls-active-list { display:flex; flex-direction:column; gap:5px; margin-bottom:6px; }
+  .ls-active-item {
+    display:flex; align-items:center; gap:8px;
+    padding:7px 10px;
+    background:rgba(99,102,241,.1);
+    border:1px solid rgba(99,102,241,.3);
+    border-radius:6px; font-size:12px;
+  }
+  .ls-active-badge { color:var(--teal); font-size:12px; flex-shrink:0; }
+  .ls-active-desc { flex:1; color:var(--text-dim); font-weight:500; }
+  .ls-empty-msg { font-size:11px; color:var(--muted); font-style:italic; padding:2px 0 6px; }
+  .ls-draft-form {
+    background:var(--surface-2); border:1px solid var(--border);
+    border-radius:6px; padding:8px 10px;
+    display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px;
+    margin-bottom:4px;
+  }
+  .ls-confirm-btn {
+    width:100%; padding:7px 12px;
+    background:linear-gradient(135deg,var(--teal) 0%,#0EA5E9 100%);
+    color:#fff; border:none; border-radius:6px;
+    font-size:12px; font-weight:700; cursor:pointer;
+    letter-spacing:.3px; transition:opacity .12s;
+  }
+  .ls-confirm-btn:hover { opacity:.85; }
+  .ls-draft-err { display:none; color:var(--red); font-size:11px; padding:2px 2px; flex-basis:100%; }
+
   /* ── Calculate Button ── */
   .calc-btn {
     width: 100%;
@@ -1085,13 +1113,66 @@
         <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px;">
         <p class="section-note" style="margin-bottom:6px;">One-off rules (applied on top of solver amount):</p>
 
-        <div class="rules-list" id="lumpSumRulesList">
-          <!-- JS-rendered lump sum rows appear here -->
+        <!-- Active confirmed rules -->
+        <div class="ls-active-list" id="lsActiveList">
+          <div class="ls-empty-msg" id="lsEmptyMsg">No active rules — configure one below and click Confirm.</div>
         </div>
 
-        <button class="add-rule-btn" onclick="addLumpSumRule()">
-          ＋ Add Lump Sum Rule
-        </button>
+        <!-- Draft form -->
+        <div class="ls-draft-form">
+          <div class="rule-field" style="min-width:130px;">
+            <label>Cadence</label>
+            <select id="lsDraftCadence" onchange="updateLsDraftCadence()">
+              <option value="once">One-time</option>
+              <option value="annually">Annually</option>
+              <option value="biannually">Bi-Annually</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="rule-field" id="lsDraftMonthField">
+            <label id="lsDraftMonthLabel">At Month #</label>
+            <input type="number" id="lsDraftMonth" placeholder="e.g. 6" min="1" step="1">
+          </div>
+          <div class="rule-field">
+            <label>Amount</label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
+              <input type="text" inputmode="decimal" id="lsDraftAmount" placeholder="e.g. 5,000" style="padding-left:20px;" oninput="formatCurrencyInput(this)">
+            </div>
+          </div>
+          <div id="lsDraftCustomSection" style="display:none;flex-basis:100%;margin-top:4px;padding:8px 10px;background:var(--surface-3);border-radius:5px;border:1px solid var(--border);">
+            <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Custom conditions — use one or both (lump sum fires at any matching month)</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Calendar month (yearly)</label>
+                <select id="lsDraftCalMonth" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface);color:var(--text);">
+                  <option value="">— skip —</option>
+                  <option value="1">January</option><option value="2">February</option>
+                  <option value="3">March</option><option value="4">April</option>
+                  <option value="5">May</option><option value="6">June</option>
+                  <option value="7">July</option><option value="8">August</option>
+                  <option value="9">September</option><option value="10">October</option>
+                  <option value="11">November</option><option value="12">December</option>
+                </select>
+              </div>
+              <div style="display:flex;align-items:flex-end;padding-bottom:6px;color:var(--muted);font-size:11px;font-weight:700;">AND / OR</div>
+              <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                  <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Every N months</label>
+                  <input type="number" id="lsDraftInterval" placeholder="e.g. 4" min="1" step="1" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:80px;background:var(--surface);color:var(--text);">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                  <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">From loan month</label>
+                  <input type="number" id="lsDraftCustomStart" placeholder="1" min="1" step="1" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:70px;background:var(--surface);color:var(--text);">
+                </div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic;">Leave a condition blank to skip it.</div>
+          </div>
+          <div class="ls-draft-err" id="lsDraftErr"></div>
+          <button class="ls-confirm-btn" onclick="confirmLsRule()">＋ Confirm Rule</button>
+        </div>
       </div>
     </div><!-- /Lump Sum Contributions -->
 
@@ -1307,6 +1388,8 @@ const lockState = {
   targetHousingPmt: false, fixedObligations: false, lumpSum: false,
   totalInterest: false, payoffMonths: false, payoffDate: false,
 };
+let lsRulesData     = [];  // [{id, rule, label}] — confirmed active rules
+let lsRuleIdCounter = 0;
 
 function toggleLock(field) {
   lockState[field] = !lockState[field];
@@ -1385,85 +1468,114 @@ function addContribRule() {
 }
 
 // ── Lump Sum Rules ───────────────────────────────
-let lumpSumCounter = 0;
+const LS_CAL_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function addLumpSumRule() {
-  lumpSumCounter++;
-  const id = 'ls-' + lumpSumCounter;
-  const n  = lumpSumCounter;
-  const list = document.getElementById('lumpSumRulesList');
-  const div = document.createElement('div');
-  div.className = 'rule-row';
-  div.id = id;
-  div.innerHTML = `
-    <div class="rule-field" style="min-width:130px;">
-      <label>Cadence</label>
-      <select onchange="updateLumpSumCadence(this, '${id}')">
-        <option value="once">One-time</option>
-        <option value="annually">Annually</option>
-        <option value="biannually">Bi-Annually</option>
-        <option value="quarterly">Quarterly</option>
-        <option value="custom">Custom</option>
-      </select>
-    </div>
-    <div class="rule-field ls-month-field-${n}">
-      <label>At Month #</label>
-      <input type="number" placeholder="e.g. 6" min="1" step="1" class="ls-month-input">
-    </div>
-    <div class="rule-field">
-      <label>Amount</label>
-      <div style="position:relative;display:flex;align-items:center;">
-        <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
-        <input type="text" inputmode="decimal" placeholder="e.g. 5,000" class="ls-amount-input" style="padding-left:20px;" oninput="formatCurrencyInput(this)">
-      </div>
-    </div>
-    <button class="rule-remove" title="Remove" onclick="removeRule('${id}')">✕</button>
-    <div class="ls-custom-section-${n}" style="display:none;flex-basis:100%;margin-top:4px;padding:8px 10px;background:var(--surface-3);border-radius:5px;border:1px solid var(--border);">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Custom conditions — use one or both (lump sum fires at any matching month)</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="display:flex;flex-direction:column;gap:3px;">
-          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Calendar month (yearly)</label>
-          <select class="ls-cal-month-input" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface);color:var(--text);">
-            <option value="">— skip —</option>
-            <option value="1">January</option><option value="2">February</option>
-            <option value="3">March</option><option value="4">April</option>
-            <option value="5">May</option><option value="6">June</option>
-            <option value="7">July</option><option value="8">August</option>
-            <option value="9">September</option><option value="10">October</option>
-            <option value="11">November</option><option value="12">December</option>
-          </select>
-        </div>
-        <div style="display:flex;align-items:flex-end;padding-bottom:6px;color:var(--muted);font-size:11px;font-weight:700;">AND / OR</div>
-        <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
-          <div style="display:flex;flex-direction:column;gap:3px;">
-            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Every N months</label>
-            <input type="number" placeholder="e.g. 4" min="1" step="1" class="ls-interval-input" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:80px;background:var(--surface);color:var(--text);">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;">
-            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">From loan month</label>
-            <input type="number" placeholder="1" min="1" step="1" class="ls-custom-start-input" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:70px;background:var(--surface);color:var(--text);">
-          </div>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic;">Leave a condition blank to skip it.</div>
-    </div>
-  `;
-  list.appendChild(div);
+function updateLsDraftCadence() {
+  const cadence = document.getElementById('lsDraftCadence').value;
+  const monthField    = document.getElementById('lsDraftMonthField');
+  const monthLabel    = document.getElementById('lsDraftMonthLabel');
+  const customSection = document.getElementById('lsDraftCustomSection');
+  if (cadence === 'custom') {
+    monthField.style.display    = 'none';
+    customSection.style.display = '';
+  } else {
+    monthField.style.display    = '';
+    monthLabel.textContent      = cadence === 'once' ? 'At Month #' : 'Starting Month #';
+    customSection.style.display = 'none';
+  }
 }
 
-function updateLumpSumCadence(select, rowId) {
-  const row     = document.getElementById(rowId);
-  const counter = rowId.split('-')[1];
-  const monthF  = row.querySelector('.ls-month-field-'    + counter);
-  const customS = row.querySelector('.ls-custom-section-' + counter);
-  const lbl     = monthF ? monthF.querySelector('label') : null;
-  if (select.value === 'custom') {
-    if (monthF)  monthF.style.display  = 'none';
-    if (customS) customS.style.display = '';
-  } else {
-    if (monthF)  { monthF.style.display = ''; if (lbl) lbl.textContent = select.value === 'once' ? 'At Month #' : 'Starting Month #'; }
-    if (customS) customS.style.display  = 'none';
+function confirmLsRule() {
+  const errEl = document.getElementById('lsDraftErr');
+  errEl.style.display = 'none';
+
+  const cadence   = document.getElementById('lsDraftCadence').value;
+  const amountVal = parseCurrency(document.getElementById('lsDraftAmount').value);
+
+  if (isNaN(amountVal) || amountVal <= 0) {
+    errEl.textContent = 'Amount is required and must be greater than $0.';
+    errEl.style.display = 'block';
+    return;
   }
+
+  let rule, label;
+
+  if (cadence === 'custom') {
+    const calMonthVal   = document.getElementById('lsDraftCalMonth').value;
+    const intervalVal   = document.getElementById('lsDraftInterval').value;
+    const customStVal   = document.getElementById('lsDraftCustomStart').value;
+    const calMonth      = calMonthVal   ? parseInt(calMonthVal,   10) : NaN;
+    const interval      = intervalVal   ? parseInt(intervalVal,   10) : NaN;
+    const customStart   = customStVal   ? parseInt(customStVal,   10) : NaN;
+
+    if (isNaN(calMonth) && isNaN(interval)) {
+      errEl.textContent = 'Custom rules need at least one condition: a calendar month or an interval.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    rule = { cadence: 'custom', amount: amountVal };
+    const parts = [];
+    if (!isNaN(calMonth) && calMonth >= 1 && calMonth <= 12) {
+      rule.calendarMonth = calMonth;
+      parts.push('every ' + LS_CAL_NAMES[calMonth]);
+    }
+    if (!isNaN(interval) && interval >= 1) {
+      rule.interval   = interval;
+      rule.startMonth = (!isNaN(customStart) && customStart >= 1) ? customStart : 1;
+      parts.push(`every ${interval} mo from Mo.${rule.startMonth}`);
+    }
+    label = `Custom: ${parts.join(' & ')} · ${fmt(amountVal)}`;
+
+  } else {
+    const monthRaw   = parseInt(document.getElementById('lsDraftMonth').value, 10);
+    const startMonth = (!isNaN(monthRaw) && monthRaw >= 1) ? monthRaw : 1;
+    rule  = { cadence, amount: amountVal, startMonth };
+
+    const cadenceLabel = { once:'One-time', annually:'Annually', biannually:'Every 6 mo', quarterly:'Quarterly' };
+    const monthPart    = cadence === 'once' ? `at Month ${startMonth}` : `from Month ${startMonth}`;
+    label = `${cadenceLabel[cadence]} ${monthPart} · ${fmt(amountVal)}`;
+  }
+
+  lsRuleIdCounter++;
+  lsRulesData.push({ id: lsRuleIdCounter, rule, label });
+  renderLsActiveRules();
+
+  // Reset draft form
+  document.getElementById('lsDraftAmount').value = '';
+  document.getElementById('lsDraftMonth').value  = '';
+  document.getElementById('lsDraftCadence').value = 'once';
+  document.getElementById('lsDraftCalMonth').value = '';
+  document.getElementById('lsDraftInterval').value = '';
+  document.getElementById('lsDraftCustomStart').value = '';
+  updateLsDraftCadence();
+}
+
+function removeLsRule(id) {
+  lsRulesData = lsRulesData.filter(r => r.id !== id);
+  renderLsActiveRules();
+}
+
+function renderLsActiveRules() {
+  const container = document.getElementById('lsActiveList');
+  const emptyMsg  = document.getElementById('lsEmptyMsg');
+  container.querySelectorAll('.ls-active-item').forEach(el => el.remove());
+  if (lsRulesData.length === 0) {
+    emptyMsg.style.display = '';
+  } else {
+    emptyMsg.style.display = 'none';
+    lsRulesData.forEach(({ id, label }) => {
+      const item = document.createElement('div');
+      item.className = 'ls-active-item';
+      item.id = 'lsRule-' + id;
+      item.innerHTML =
+        `<span class="ls-active-badge">✓</span>` +
+        `<span class="ls-active-desc">${label}</span>` +
+        `<button class="rule-remove" title="Remove rule" onclick="removeLsRule(${id})">✕</button>`;
+      container.appendChild(item);
+    });
+  }
+  updateHousingSubtotal();
 }
 
 function removeRule(id) {
@@ -1490,35 +1602,7 @@ function readContribRules() {
 }
 
 function readLumpSumRules() {
-  const rows = document.querySelectorAll('#lumpSumRulesList .rule-row');
-  const rules = [];
-  rows.forEach(row => {
-    const cadence  = row.querySelector('select').value;
-    const amountEl = row.querySelector('.ls-amount-input');
-    const amount   = parseCurrency(amountEl ? amountEl.value : '');
-    if (isNaN(amount) || amount <= 0) return;
-
-    if (cadence === 'custom') {
-      const calMonthEl  = row.querySelector('.ls-cal-month-input');
-      const intervalEl  = row.querySelector('.ls-interval-input');
-      const startEl     = row.querySelector('.ls-custom-start-input');
-      const calMonth    = calMonthEl && calMonthEl.value ? parseInt(calMonthEl.value, 10) : NaN;
-      const interval    = intervalEl && intervalEl.value ? parseInt(intervalEl.value,  10) : NaN;
-      const startMonth  = startEl    && startEl.value    ? parseInt(startEl.value,     10) : NaN;
-      const rule = { cadence: 'custom', amount };
-      if (!isNaN(calMonth) && calMonth >= 1 && calMonth <= 12) rule.calendarMonth = calMonth;
-      if (!isNaN(interval) && interval >= 1) {
-        rule.interval   = interval;
-        rule.startMonth = (!isNaN(startMonth) && startMonth >= 1) ? startMonth : 1;
-      }
-      rules.push(rule);
-    } else {
-      const monthInp   = row.querySelector('.ls-month-input');
-      const startMonth = monthInp ? parseFloat(monthInp.value) : NaN;
-      rules.push({ cadence, amount, startMonth: isNaN(startMonth) ? 1 : Math.round(startMonth) });
-    }
-  });
-  return rules;
+  return lsRulesData.map(r => r.rule);
 }
 
 function getContribForMonth(baseContrib, changeRules, monthNum) {
