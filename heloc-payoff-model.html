@@ -1693,33 +1693,30 @@ function runAmortization(params) {
   for (let n = 1; n <= limit; n++) {
     if (bal <= 0.005) break;
 
-    const startBal = bal;
-
-    // Step 1: Get lump sums for this month
-    const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n, startDateStr));
-    const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n, startDateStr));
-    const lumpSum     = round2(scheduledLS + solverLS);
-
-    // Step 2: Apply lump sum as immediate principal reduction before interest
-    const balAfterLS  = Math.max(0, round2(startBal - lumpSum));
+    const startBal    = bal;
     const inRepayment = n > DRAW_MONTHS;
 
-    // Step 3: All calculations on reduced balance
-    const interest = round2(balAfterLS * monthlyRate);
-    const minPmt   = round2(balAfterLS * minPctPerMonth / 100);
-
+    // ── Transaction 1: Regular housing payment on full startBal ──
+    const interest = round2(startBal * monthlyRate);
+    const minPmt   = round2(startBal * minPctPerMonth / 100);
     const addl = housingTarget > 0
       ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
       : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
 
-    // totalPmt is housing payment only — lumpSum is tracked separately
     let totalPmt = minPmt + addl;
-    const maxPmt = round2(balAfterLS + interest);
+    const maxPmt = round2(startBal + interest);
     if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
 
-    const principal = round2(totalPmt - interest);
-    const endBal    = Math.max(0, round2(balAfterLS - principal));
-    cumulInterest   = round2(cumulInterest + interest);
+    const principal    = round2(totalPmt - interest);
+    const balAfterPmt  = Math.max(0, round2(startBal - principal));
+
+    // ── Transaction 2: Lump sum — independent direct principal reduction ──
+    const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n, startDateStr));
+    const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n, startDateStr));
+    const lumpSum     = round2(scheduledLS + solverLS);
+
+    const endBal = Math.max(0, round2(balAfterPmt - lumpSum));
+    cumulInterest = round2(cumulInterest + interest);
 
     const contribChanged = (n > 1 && addl !== prevContrib);
     prevContrib = addl;
@@ -1732,7 +1729,7 @@ function runAmortization(params) {
       addlContrib: addl,
       scheduledLumpSum: scheduledLS,
       solverLumpSum:    solverLS,
-      lumpSum,                        // immediate principal reduction, separate from totalPmt
+      lumpSum,
       totalPmt,
       principal,
       interest,
