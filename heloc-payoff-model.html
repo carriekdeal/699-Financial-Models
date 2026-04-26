@@ -737,7 +737,8 @@
           <div class="field-inner" style="width:100%">
             <span class="field-label">Plan Start Date</span>
             <div class="field-input-wrap">
-              <input type="date" class="field-input" id="startDate">
+              <input type="date" class="field-input" id="startDate"
+                     oninput="syncPayoffFields('startDate')">
             </div>
           </div>
         </div>
@@ -810,7 +811,8 @@
             <span class="field-label">Projected Payoff Period (Months)</span>
             <div class="field-input-wrap">
               <input type="number" class="field-input has-suffix" id="payoffMonths"
-                     placeholder="calculated" step="1" min="1" max="600">
+                     placeholder="calculated" step="1" min="1" max="600"
+                     oninput="syncPayoffFields('payoffMonths')">
               <span class="field-suffix">mo</span>
             </div>
           </div>
@@ -823,7 +825,8 @@
             <span class="field-label">Payoff Date</span>
             <div class="field-input-wrap">
               <input type="text" class="field-input" id="payoffDate"
-                     placeholder="calculated" readonly>
+                     placeholder="calculated e.g. May 1, 2030"
+                     oninput="syncPayoffFields('payoffDate')">
             </div>
           </div>
           <button class="lock-btn" id="lock-payoffDate" title="Lock / Unlock" onclick="toggleLock('payoffDate')">🔓</button>
@@ -1125,6 +1128,29 @@ function toggleLock(field) {
     btn.classList.remove('locked');
     btn.textContent = '🔓';
     btn.title = 'Unlocked — click to lock';
+  }
+}
+
+// Single source-of-truth sync for Start Date ↔ Payoff Period ↔ Payoff Date.
+// source = which field was just changed; the other two derive from it.
+function syncPayoffFields(source) {
+  const startEl  = document.getElementById('startDate');
+  const monthsEl = document.getElementById('payoffMonths');
+  const dateEl   = document.getElementById('payoffDate');
+  const startStr = startEl.value;
+  if (!startStr) return;
+
+  if (source === 'payoffDate') {
+    // User typed a date → derive months (only when date is parseable)
+    const m = payoffDateToMonths(startStr, dateEl.value);
+    if (m && String(m) !== monthsEl.value) monthsEl.value = m;
+  } else {
+    // startDate or payoffMonths changed → re-derive date from months
+    const months = parseInt(monthsEl.value, 10);
+    if (!isNaN(months) && months >= 1) {
+      const full = monthNumToFullDate(startStr, months);
+      if (dateEl.value !== full) dateEl.value = full;
+    }
   }
 }
 
@@ -1752,7 +1778,7 @@ function updateSummary(schedule, params, baseline) {
   ['m-monthlyPayment','m-totalInterest','m-totalPaid','m-payoffDate','m-interestSaved','m-timeSaved']
     .forEach(id => document.getElementById(id).classList.remove('placeholder'));
 
-  // Also sync locked output fields
+  // Sync output fields (skip locked ones — they are solver constraints, not outputs)
   if (!lockState['totalInterest']) {
     document.getElementById('totalInterest').value = totalInterest.toFixed(2);
   }
@@ -1762,6 +1788,9 @@ function updateSummary(schedule, params, baseline) {
   if (!lockState['payoffDate']) {
     document.getElementById('payoffDate').value = payoffDateFull;
   }
+
+  // Re-anchor the three-way sync so all fields agree after every Calculate
+  syncPayoffFields('payoffMonths');
 }
 
 // ════════════════════════════════════════════════
