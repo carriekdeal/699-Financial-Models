@@ -1239,6 +1239,7 @@ let lumpSumCounter = 0;
 function addLumpSumRule() {
   lumpSumCounter++;
   const id = 'ls-' + lumpSumCounter;
+  const n  = lumpSumCounter;
   const list = document.getElementById('lumpSumRulesList');
   const div = document.createElement('div');
   div.className = 'rule-row';
@@ -1251,44 +1252,66 @@ function addLumpSumRule() {
         <option value="annually">Annually</option>
         <option value="biannually">Bi-Annually</option>
         <option value="quarterly">Quarterly</option>
-        <option value="custom">Custom Interval</option>
+        <option value="custom">Custom</option>
       </select>
     </div>
-    <div class="rule-field ls-month-field-${lumpSumCounter}">
+    <div class="rule-field ls-month-field-${n}">
       <label>At Month #</label>
       <input type="number" placeholder="e.g. 6" min="1" step="1" class="ls-month-input">
-    </div>
-    <div class="rule-field ls-interval-field-${lumpSumCounter}" style="display:none;">
-      <label>Every N Months</label>
-      <input type="number" placeholder="e.g. 4" min="1" step="1" class="ls-interval-input">
     </div>
     <div class="rule-field">
       <label>Amount</label>
       <div style="position:relative;display:flex;align-items:center;">
         <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
-        <input type="text" inputmode="decimal" placeholder="e.g. 5,000" style="padding-left:20px;" oninput="formatCurrencyInput(this)">
+        <input type="text" inputmode="decimal" placeholder="e.g. 5,000" class="ls-amount-input" style="padding-left:20px;" oninput="formatCurrencyInput(this)">
       </div>
     </div>
     <button class="rule-remove" title="Remove" onclick="removeRule('${id}')">✕</button>
+    <div class="ls-custom-section-${n}" style="display:none;flex-basis:100%;margin-top:4px;padding:8px 10px;background:#f1f5f9;border-radius:5px;border:1px solid #cbd5e1;">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Custom conditions — use one or both (lump sum fires at any matching month)</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Calendar month (yearly)</label>
+          <select class="ls-cal-month-input" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface);color:var(--text);">
+            <option value="">— skip —</option>
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:6px;color:var(--muted);font-size:11px;font-weight:700;">AND / OR</div>
+        <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Every N months</label>
+            <input type="number" placeholder="e.g. 4" min="1" step="1" class="ls-interval-input" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:80px;background:var(--surface);color:var(--text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">From loan month</label>
+            <input type="number" placeholder="1" min="1" step="1" class="ls-custom-start-input" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:70px;background:var(--surface);color:var(--text);">
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic;">Leave a condition blank to skip it.</div>
+    </div>
   `;
   list.appendChild(div);
 }
 
 function updateLumpSumCadence(select, rowId) {
-  const row      = document.getElementById(rowId);
-  const counter  = rowId.split('-')[1];
-  const monthF   = row.querySelector('.ls-month-field-'    + counter);
-  const intervalF= row.querySelector('.ls-interval-field-' + counter);
-  const lbl      = monthF ? monthF.querySelector('label') : null;
-  if (select.value === 'once') {
-    if (monthF)    { monthF.style.display = ''; if (lbl) lbl.textContent = 'At Month #'; }
-    if (intervalF) intervalF.style.display = 'none';
-  } else if (select.value === 'custom') {
-    if (monthF)    { monthF.style.display = ''; if (lbl) lbl.textContent = 'Starting Month #'; }
-    if (intervalF) intervalF.style.display = '';
+  const row     = document.getElementById(rowId);
+  const counter = rowId.split('-')[1];
+  const monthF  = row.querySelector('.ls-month-field-'    + counter);
+  const customS = row.querySelector('.ls-custom-section-' + counter);
+  const lbl     = monthF ? monthF.querySelector('label') : null;
+  if (select.value === 'custom') {
+    if (monthF)  monthF.style.display  = 'none';
+    if (customS) customS.style.display = '';
   } else {
-    if (monthF)    { monthF.style.display = ''; if (lbl) lbl.textContent = 'Starting Month #'; }
-    if (intervalF) intervalF.style.display = 'none';
+    if (monthF)  { monthF.style.display = ''; if (lbl) lbl.textContent = select.value === 'once' ? 'At Month #' : 'Starting Month #'; }
+    if (customS) customS.style.display  = 'none';
   }
 }
 
@@ -1320,19 +1343,29 @@ function readLumpSumRules() {
   const rules = [];
   rows.forEach(row => {
     const cadence  = row.querySelector('select').value;
-    const monthInp = row.querySelector('.ls-month-input');
-    const intervalInp = row.querySelector('.ls-interval-input');
-    const amountInp = row.querySelectorAll('input[type="number"]');
-    // last numeric input is always the amount
-    const amount = parseCurrency(amountInp[amountInp.length - 1].value);
-    const startMonth = monthInp ? parseFloat(monthInp.value) : NaN;
+    const amountEl = row.querySelector('.ls-amount-input');
+    const amount   = parseCurrency(amountEl ? amountEl.value : '');
     if (isNaN(amount) || amount <= 0) return;
-    const rule = { cadence, amount, startMonth: isNaN(startMonth) ? 1 : Math.round(startMonth) };
+
     if (cadence === 'custom') {
-      const interval = intervalInp ? parseFloat(intervalInp.value) : NaN;
-      rule.interval = (!isNaN(interval) && interval >= 1) ? Math.round(interval) : 1;
+      const calMonthEl  = row.querySelector('.ls-cal-month-input');
+      const intervalEl  = row.querySelector('.ls-interval-input');
+      const startEl     = row.querySelector('.ls-custom-start-input');
+      const calMonth    = calMonthEl && calMonthEl.value ? parseInt(calMonthEl.value, 10) : NaN;
+      const interval    = intervalEl && intervalEl.value ? parseInt(intervalEl.value,  10) : NaN;
+      const startMonth  = startEl    && startEl.value    ? parseInt(startEl.value,     10) : NaN;
+      const rule = { cadence: 'custom', amount };
+      if (!isNaN(calMonth) && calMonth >= 1 && calMonth <= 12) rule.calendarMonth = calMonth;
+      if (!isNaN(interval) && interval >= 1) {
+        rule.interval   = interval;
+        rule.startMonth = (!isNaN(startMonth) && startMonth >= 1) ? startMonth : 1;
+      }
+      rules.push(rule);
+    } else {
+      const monthInp   = row.querySelector('.ls-month-input');
+      const startMonth = monthInp ? parseFloat(monthInp.value) : NaN;
+      rules.push({ cadence, amount, startMonth: isNaN(startMonth) ? 1 : Math.round(startMonth) });
     }
-    rules.push(rule);
   });
   return rules;
 }
@@ -1347,27 +1380,40 @@ function getContribForMonth(baseContrib, changeRules, monthNum) {
   return amount;
 }
 
-function getLumpSumForMonth(lsRules, monthNum) {
+function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
   let total = 0;
   for (const r of lsRules) {
-    const s = r.startMonth;
-    if (monthNum < s) continue;
+    const s = r.startMonth || 1;
     switch (r.cadence) {
       case 'once':
         if (monthNum === s) total += r.amount;
         break;
       case 'annually':
-        if ((monthNum - s) % 12 === 0) total += r.amount;
+        if (monthNum >= s && (monthNum - s) % 12 === 0) total += r.amount;
         break;
       case 'biannually':
-        if ((monthNum - s) % 6 === 0) total += r.amount;
+        if (monthNum >= s && (monthNum - s) % 6  === 0) total += r.amount;
         break;
       case 'quarterly':
-        if ((monthNum - s) % 3 === 0) total += r.amount;
+        if (monthNum >= s && (monthNum - s) % 3  === 0) total += r.amount;
         break;
-      case 'custom':
-        if (r.interval > 0 && (monthNum - s) % r.interval === 0) total += r.amount;
+      case 'custom': {
+        // Union of two independent sub-conditions
+        let fires = false;
+        // Sub-condition 1: specific calendar month of year (fires every year for life of loan)
+        if (r.calendarMonth) {
+          const smNum    = parseInt((startDateStr || '').split('-')[1] || '1', 10);
+          const calMonth = ((smNum + monthNum - 2) % 12) + 1;
+          if (calMonth === r.calendarMonth) fires = true;
+        }
+        // Sub-condition 2: every N months starting from loan month r.startMonth
+        if (!fires && r.interval > 0) {
+          const s2 = r.startMonth || 1;
+          if (monthNum >= s2 && (monthNum - s2) % r.interval === 0) fires = true;
+        }
+        if (fires) total += r.amount;
         break;
+      }
     }
   }
   return total;
@@ -1423,8 +1469,8 @@ function runAmortization(params) {
     const addl = housingTarget > 0
       ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
       : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
-    const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n));
-    const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n));
+    const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n, startDateStr));
+    const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n, startDateStr));
     const lumpSum     = round2(scheduledLS + solverLS);
 
     // Total payment capped so we never overpay
