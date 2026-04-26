@@ -1,41 +1,41 @@
 #!/usr/bin/env node
-// Validation tests — lump sum engine with correct two-transaction architecture
+// Validation tests — rebuilt lump sum engine with Month Name + Year data model
 
 const round2 = v => Math.round(v * 100) / 100;
 const DRAW_MONTHS     = 240;
 const MAX_LOAN_MONTHS = 480;
 
+const LS_MON_NAMES = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+
+function monthStrToLoanMonth(monthStr, startDateStr) {
+  if (!monthStr) return null;
+  const parts    = monthStr.trim().split(' ');
+  const calMonth = LS_MON_NAMES.indexOf(parts[0]) + 1;
+  const calYear  = parseInt(parts[1], 10);
+  if (calMonth < 1 || isNaN(calYear)) return null;
+  const [sy, sm] = startDateStr.split('-').map(Number);
+  return (calYear - sy) * 12 + (calMonth - sm) + 1;
+}
+
 function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
   let total = 0;
   for (const r of lsRules) {
-    const s = r.startMonth || 1;
+    const s = r.startMonthStr
+      ? monthStrToLoanMonth(r.startMonthStr, startDateStr)
+      : (r.startMonth || 1);
+    if (s === null || monthNum < s) continue;
+
+    const e = r.endMonthStr ? monthStrToLoanMonth(r.endMonthStr, startDateStr) : null;
+    if (e !== null && monthNum > e) continue;
+
     switch (r.cadence) {
-      case 'once':
-        if (monthNum === s) total += r.amount;
-        break;
-      case 'annually':
-        if (monthNum >= s && (monthNum - s) % 12 === 0) total += r.amount;
-        break;
-      case 'biannually':
-        if (monthNum >= s && (monthNum - s) % 6  === 0) total += r.amount;
-        break;
-      case 'quarterly':
-        if (monthNum >= s && (monthNum - s) % 3  === 0) total += r.amount;
-        break;
-      case 'custom': {
-        let fires = false;
-        if (r.calendarMonth) {
-          const smNum    = parseInt((startDateStr || '').split('-')[1] || '1', 10);
-          const calMonth = ((smNum + monthNum - 2) % 12) + 1;
-          if (calMonth === r.calendarMonth) fires = true;
-        }
-        if (!fires && r.interval > 0) {
-          const s2 = r.startMonth || 1;
-          if (monthNum >= s2 && (monthNum - s2) % r.interval === 0) fires = true;
-        }
-        if (fires) total += r.amount;
-        break;
-      }
+      case 'once':       if (monthNum === s) total += r.amount; break;
+      case 'monthly':    total += r.amount; break;
+      case 'annually':   if ((monthNum - s) % 12 === 0) total += r.amount; break;
+      case 'biannually': if ((monthNum - s) % 6  === 0) total += r.amount; break;
+      case 'quarterly':  if ((monthNum - s) % 3  === 0) total += r.amount; break;
+      case 'custom':     if (r.interval > 0 && (monthNum - s) % r.interval === 0) total += r.amount; break;
     }
   }
   return total;
@@ -44,16 +44,9 @@ function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
 function getContribForMonth(baseContrib, changeRules, monthNum) {
   let amount = baseContrib;
   for (const r of changeRules) {
-    if (r.startMonth <= monthNum) amount = r.amount;
-    else break;
+    if (r.startMonth <= monthNum) amount = r.amount; else break;
   }
   return amount;
-}
-
-// Calendar month number (1-12) → loan month number
-function calendarMonthToLoanMonth(startDateStr, calYear, calMonth) {
-  const [sy, sm] = startDateStr.split('-').map(Number);
-  return (calYear - sy) * 12 + (calMonth - sm) + 1;
 }
 
 function monthNumToDate(startDateStr, monthOffset) {
@@ -70,9 +63,7 @@ function runAmortization(params) {
   const monthlyRate = annualRate / 100 / 12;
   const limit = maxMonths ?? MAX_LOAN_MONTHS;
   const schedule = [];
-  let bal = balance;
-  let cumulInterest = 0;
-  let prevContrib = baseContrib;
+  let bal = balance, cumulInterest = 0, prevContrib = baseContrib;
 
   for (let n = 1; n <= limit; n++) {
     if (bal <= 0.005) break;
@@ -80,7 +71,7 @@ function runAmortization(params) {
     const startBal    = bal;
     const inRepayment = n > DRAW_MONTHS;
 
-    // ── Transaction 1: Regular housing payment on full startBal ──
+    // Transaction 1: regular housing payment on full startBal
     const interest = round2(startBal * monthlyRate);
     const minPmt   = round2(startBal * minPctPerMonth / 100);
     const addl = housingTarget > 0
@@ -94,7 +85,7 @@ function runAmortization(params) {
     const principal   = round2(totalPmt - interest);
     const balAfterPmt = Math.max(0, round2(startBal - principal));
 
-    // ── Transaction 2: Lump sum — independent direct principal reduction ──
+    // Transaction 2: lump sum — independent direct principal reduction
     const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n, startDateStr));
     const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n, startDateStr));
     const lumpSum     = round2(scheduledLS + solverLS);
@@ -102,20 +93,11 @@ function runAmortization(params) {
     const endBal = Math.max(0, round2(balAfterPmt - lumpSum));
     cumulInterest = round2(cumulInterest + interest);
 
-    const contribChanged = (n > 1 && addl !== prevContrib);
-    prevContrib = addl;
-
     schedule.push({
-      monthNum: n,
-      date: monthNumToDate(startDateStr, n),
-      startBal, minPmt, addlContrib: addl,
-      scheduledLumpSum: scheduledLS, solverLumpSum: solverLS, lumpSum,
+      monthNum: n, date: monthNumToDate(startDateStr, n),
+      startBal, minPmt, addlContrib: addl, lumpSum,
       totalPmt, principal, interest, endBal, cumulInterest,
-      contribChanged,
-      hasScheduledLS: scheduledLS > 0,
-      hasSolverLS:    solverLS    > 0,
-      hasLumpSum:     lumpSum     > 0,
-      period: inRepayment ? 'repayment' : 'draw',
+      scheduledLumpSum: scheduledLS, solverLumpSum: solverLS,
     });
 
     bal = endBal;
@@ -128,90 +110,80 @@ const fmt  = v => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maxi
 const pass = (cond, msg) => console.log(`  ${cond ? 'PASS ✓' : 'FAIL ✗'} ${msg}`);
 
 // ─────────────────────────────────────────────────────────────────
-// PARAMETERS
+// PARAMETERS (start April 2026; June 2026 = loan month 3)
 // ─────────────────────────────────────────────────────────────────
-const START = '2026-04-01';   // April 2026 = month 1
-// June 2026 = month 3 (Apr=1, May=2, Jun=3)
-const JUNE_2026_MONTH = calendarMonthToLoanMonth(START, 2026, 6);  // = 3
-
-const BASE = {
-  balance:        250000,
-  annualRate:     8.75,
-  minPctPerMonth: 1,
-  baseContrib:    0,
-  contribRules:   [],
-  solverLsRules:  [],
-  lsRules:        [],
-  startDateStr:   START,
-  housingTarget:  6250,
-  fixedObligation: 2307,
+const START = '2026-04-01';
+const BASE  = {
+  balance: 250000, annualRate: 8.75, minPctPerMonth: 1,
+  baseContrib: 0, contribRules: [], solverLsRules: [], lsRules: [],
+  startDateStr: START, housingTarget: 6250, fixedObligation: 2307,
 };
+
+// Verify month mapping
+const juneMonth = monthStrToLoanMonth('June 2026', START);
+console.log(`\nMonth mapping: June 2026 = loan month ${juneMonth} (expected 3)`);
+pass(juneMonth === 3, 'June 2026 maps to loan month 3');
 
 // ─────────────────────────────────────────────────────────────────
 // BASELINE
 // ─────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════');
-console.log('BASELINE: $250k, 8.75%, 1% min, $6,250 housing target, $2,307 fixed');
+console.log('BASELINE: $250k · 8.75% · 1% min · $6,250 housing · $2,307 fixed · no lump sums');
 console.log('══════════════════════════════════════════════');
 
-const baseline = runAmortization(BASE);
+const baseline    = runAmortization(BASE);
 const baseInterest   = baseline[baseline.length - 1].cumulInterest;
 const basePayoffMo   = baseline.length;
 const basePayoffDate = baseline[baseline.length - 1].date;
-const baseM5Open     = baseline[4].startBal;   // month 5 startBal = month 4 endBal
+const baseM5Open     = baseline[4].startBal;
 
 console.log(`  Total interest:          ${fmt(baseInterest)}`);
 console.log(`  Payoff:                  month ${basePayoffMo} (${basePayoffDate})`);
 console.log(`  Month 5 opening balance: ${fmt(baseM5Open)}`);
-console.log(`  (June 2026 = loan month ${JUNE_2026_MONTH})`);
-
-// Show first 5 months for reference
-console.log('\n  Months 1-5:');
-for (let i = 0; i < 5; i++) {
-  const r = baseline[i];
-  console.log(`    Month ${r.monthNum} (${r.date}): startBal=${fmt(r.startBal)}, interest=${fmt(r.interest)}, minPmt=${fmt(r.minPmt)}, addl=${fmt(r.addlContrib)}, totalPmt=${fmt(r.totalPmt)}, endBal=${fmt(r.endBal)}`);
-}
 
 // ─────────────────────────────────────────────────────────────────
-// TEST 1 — One-time $10,000 in June 2026 (loan month 3)
+// TEST 1 — One-Time $10,000 in June 2026
 // ─────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════');
-console.log('TEST 1: One-time $10,000 lump sum in June 2026 (loan month 3)');
+console.log('TEST 1: One-Time $10,000 — June 2026');
 console.log('══════════════════════════════════════════════');
 
 const t1 = runAmortization({
   ...BASE,
-  lsRules: [{ cadence: 'once', startMonth: JUNE_2026_MONTH, amount: 10000 }],
+  lsRules: [{ amount: 10000, cadence: 'once', startMonthStr: 'June 2026', endMonthStr: '' }],
 });
 
 const t1Interest = t1[t1.length - 1].cumulInterest;
 const t1M5Open   = t1[4].startBal;
 const t1Saved    = round2(baseInterest - t1Interest);
 
-console.log(`  Month 5 opening balance: ${fmt(t1M5Open)}  (baseline: ${fmt(baseM5Open)}, diff: ${fmt(round2(baseM5Open - t1M5Open))})`);
+console.log(`  Month 5 opening balance: ${fmt(t1M5Open)}  (baseline: ${fmt(baseM5Open)}, Δ = ${fmt(round2(baseM5Open - t1M5Open))})`);
 console.log(`  Total interest:          ${fmt(t1Interest)}  (baseline: ${fmt(baseInterest)})`);
 console.log(`  Interest saved:          ${fmt(t1Saved)}`);
 pass(t1Saved > 3000, `Interest saved ${fmt(t1Saved)} > $3,000`);
 
-// Show month 3 detail
-const m3_base = baseline[2];
-const m3_t1   = t1[2];
-console.log('\n  Month 3 (June 2026) detail:');
-console.log(`    Baseline:  startBal=${fmt(m3_base.startBal)}, totalPmt=${fmt(m3_base.totalPmt)}, lumpSum=$0.00, endBal=${fmt(m3_base.endBal)}`);
-console.log(`    With LS:   startBal=${fmt(m3_t1.startBal)},  totalPmt=${fmt(m3_t1.totalPmt)}, lumpSum=${fmt(m3_t1.lumpSum)}, endBal=${fmt(m3_t1.endBal)}`);
-console.log(`    Lump sum reduced endBal by: ${fmt(round2(m3_base.endBal - m3_t1.endBal))} (must be exactly $10,000)`);
-pass(Math.abs(round2(m3_base.endBal - m3_t1.endBal) - 10000) < 0.01, 'Month 3 endBal reduced by exactly $10,000');
+// Verify $10k exact reduction in month 3 closing balance
+const m3Base = baseline[2];
+const m3T1   = t1[2];
+const m3Reduction = round2(m3Base.endBal - m3T1.endBal);
+console.log(`\n  Month 3 (June 2026): baseline endBal=${fmt(m3Base.endBal)}, with LS endBal=${fmt(m3T1.endBal)}`);
+console.log(`  Lump sum reduced month 3 closing balance by: ${fmt(m3Reduction)}`);
+console.log(`  Housing payment: baseline=${fmt(m3Base.totalPmt)}, with LS=${fmt(m3T1.totalPmt)} (must be equal)`);
+console.log(`  Interest:        baseline=${fmt(m3Base.interest)}, with LS=${fmt(m3T1.interest)} (must be equal)`);
+pass(Math.abs(m3Reduction - 10000) < 0.01, 'Month 3 balance reduced by exactly $10,000');
+pass(Math.abs(m3T1.totalPmt - m3Base.totalPmt) < 0.01, 'Housing payment unchanged in lump sum month');
+pass(Math.abs(m3T1.interest - m3Base.interest) < 0.01, 'Interest unchanged in lump sum month');
 
 // ─────────────────────────────────────────────────────────────────
-// TEST 2 — Annual $10,000 starting June 2026 (loan month 3)
+// TEST 2 — Annual $10,000 starting June 2026
 // ─────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════');
-console.log('TEST 2: Annual $10,000 lump sum starting June 2026 (loan month 3)');
+console.log('TEST 2: Annually $10,000 starting June 2026');
 console.log('══════════════════════════════════════════════');
 
 const t2 = runAmortization({
   ...BASE,
-  lsRules: [{ cadence: 'annually', startMonth: JUNE_2026_MONTH, amount: 10000 }],
+  lsRules: [{ amount: 10000, cadence: 'annually', startMonthStr: 'June 2026', endMonthStr: '' }],
 });
 
 const t2Interest   = t2[t2.length - 1].cumulInterest;
@@ -221,29 +193,32 @@ const t2Saved      = round2(baseInterest - t2Interest);
 
 console.log(`  Total interest:  ${fmt(t2Interest)}  (baseline: ${fmt(baseInterest)})`);
 console.log(`  Interest saved:  ${fmt(t2Saved)}`);
-console.log(`  Payoff:          month ${t2PayoffMo} (${t2PayoffDate})  (baseline: month ${basePayoffMo}, ${basePayoffDate})`);
+console.log(`  Payoff:          month ${t2PayoffMo} (${t2PayoffDate})  baseline: month ${basePayoffMo} (${basePayoffDate})`);
 console.log(`  Months saved:    ${basePayoffMo - t2PayoffMo}`);
 pass(t2Saved > 5000, `Interest saved ${fmt(t2Saved)} > $5,000`);
-pass(t2PayoffMo < basePayoffMo, `Payoff month ${t2PayoffMo} < baseline ${basePayoffMo}`);
+pass(t2PayoffMo < basePayoffMo, `Payoff month ${t2PayoffMo} earlier than baseline ${basePayoffMo}`);
 
-// First few lump sum months
+// Show lump sum fire months (should be months 3, 15, 27 …)
+const lsMonths = t2.filter(r => r.lumpSum > 0).slice(0, 3);
 console.log('\n  First 3 lump sum months:');
-t2.filter(r => r.lumpSum > 0).slice(0, 3).forEach(r => {
-  console.log(`    Month ${r.monthNum} (${r.date}): startBal=${fmt(r.startBal)}, totalPmt=${fmt(r.totalPmt)}, lumpSum=${fmt(r.lumpSum)}, endBal=${fmt(r.endBal)}`);
+lsMonths.forEach(r => {
+  console.log(`    Month ${r.monthNum} (${r.date}): housePmt=${fmt(r.totalPmt)}, LS=${fmt(r.lumpSum)}, endBal=${fmt(r.endBal)}`);
 });
+pass(lsMonths[0].monthNum === 3,  'First LS fires at loan month 3 (June 2026)');
+pass(lsMonths[1].monthNum === 15, 'Second LS fires at loan month 15 (June 2027)');
 
 // ─────────────────────────────────────────────────────────────────
 // TEST 3 — Both rules simultaneously
 // ─────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════');
-console.log('TEST 3: Both rules simultaneously (one-time June 2026 + annual from June 2026)');
+console.log('TEST 3: Both rules — One-Time June 2026 AND Annual from June 2026');
 console.log('══════════════════════════════════════════════');
 
 const t3 = runAmortization({
   ...BASE,
   lsRules: [
-    { cadence: 'once',     startMonth: JUNE_2026_MONTH, amount: 10000 },
-    { cadence: 'annually', startMonth: JUNE_2026_MONTH, amount: 10000 },
+    { amount: 10000, cadence: 'once',     startMonthStr: 'June 2026', endMonthStr: '' },
+    { amount: 10000, cadence: 'annually', startMonthStr: 'June 2026', endMonthStr: '' },
   ],
 });
 
@@ -252,26 +227,34 @@ const t3PayoffMo   = t3.length;
 const t3PayoffDate = t3[t3.length - 1].date;
 const t3Saved      = round2(baseInterest - t3Interest);
 
-console.log(`  Total interest:     ${fmt(t3Interest)}`);
-console.log(`  Interest saved:     ${fmt(t3Saved)}  vs baseline`);
-console.log(`  vs Test 1:          ${fmt(round2(t1Interest - t3Interest))} additional savings`);
-console.log(`  vs Test 2:          ${fmt(round2(t2Interest - t3Interest))} additional savings`);
-console.log(`  Payoff:             month ${t3PayoffMo} (${t3PayoffDate})`);
+console.log(`  Total interest:  ${fmt(t3Interest)}`);
+console.log(`  Interest saved:  ${fmt(t3Saved)}  vs baseline`);
+console.log(`  vs Test 1:       ${fmt(round2(t1Interest - t3Interest))} additional`);
+console.log(`  vs Test 2:       ${fmt(round2(t2Interest - t3Interest))} additional`);
+console.log(`  Payoff:          month ${t3PayoffMo} (${t3PayoffDate})`);
 pass(t3Interest < t1Interest, `Test 3 interest ${fmt(t3Interest)} < Test 1 ${fmt(t1Interest)}`);
 pass(t3Interest < t2Interest, `Test 3 interest ${fmt(t3Interest)} < Test 2 ${fmt(t2Interest)}`);
 pass(t3Interest < baseInterest, `Test 3 interest ${fmt(t3Interest)} < baseline ${fmt(baseInterest)}`);
 
-// Month 3 with both rules — should fire $20,000 total (once + annual both hit month 3)
-const m3_t3 = t3[2];
-console.log(`\n  Month 3 (June 2026): totalPmt=${fmt(m3_t3.totalPmt)}, lumpSum=${fmt(m3_t3.lumpSum)} (once $10k + annual $10k = $20k)`);
-pass(Math.abs(m3_t3.lumpSum - 20000) < 0.01, 'Month 3 lump sum = $20,000 (both rules fire)');
+const m3T3 = t3[2];
+console.log(`\n  Month 3 lump sum: ${fmt(m3T3.lumpSum)} (one-time $10k + annual $10k = $20k expected)`);
+pass(Math.abs(m3T3.lumpSum - 20000) < 0.01, 'Month 3 fires $20,000 (both rules additive)');
+
+// ─────────────────────────────────────────────────────────────────
+// END MONTH TEST — Annual with end month
+// ─────────────────────────────────────────────────────────────────
+console.log('\n══════════════════════════════════════════════');
+console.log('END MONTH TEST: Annual $10k June 2026 → June 2028 (3 payments only)');
+console.log('══════════════════════════════════════════════');
+
+const tEnd = runAmortization({
+  ...BASE,
+  lsRules: [{ amount: 10000, cadence: 'annually', startMonthStr: 'June 2026', endMonthStr: 'June 2028' }],
+});
+const endLsMonths = tEnd.filter(r => r.lumpSum > 0);
+console.log(`  Lump sum fires: ${endLsMonths.length} times (months: ${endLsMonths.map(r=>r.monthNum).join(', ')})`);
+console.log(`  Expected: months 3, 15, 27`);
+pass(endLsMonths.length === 3, '3 lump sums fired (June 2026, June 2027, June 2028)');
+pass(endLsMonths[endLsMonths.length-1].monthNum === 27, 'Last LS fires at month 27 (June 2028)');
 
 console.log('\n══════════════════════════════════════════════');
-console.log('ARCHITECTURAL VERIFICATION');
-console.log('══════════════════════════════════════════════');
-// Verify: in any lump sum month, totalPmt is the same as baseline (payment unaffected)
-const lsMonth = t1.find(r => r.lumpSum > 0);
-const baseMonth = baseline.find(r => r.monthNum === lsMonth.monthNum);
-console.log(`  Lump sum month ${lsMonth.monthNum}: t1.totalPmt=${fmt(lsMonth.totalPmt)}, baseline.totalPmt=${fmt(baseMonth.totalPmt)}`);
-pass(Math.abs(lsMonth.totalPmt - baseMonth.totalPmt) < 0.01, 'Housing payment unchanged in lump sum month');
-pass(lsMonth.interest === baseMonth.interest, `Interest unchanged in lump sum month (${fmt(lsMonth.interest)} = ${fmt(baseMonth.interest)})`);

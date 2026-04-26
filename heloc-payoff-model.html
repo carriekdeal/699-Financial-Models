@@ -347,33 +347,25 @@
   }
   .add-rule-btn:hover { border-color: var(--accent); color: var(--accent-lt); }
 
-  /* ── Confirmed lump sum rules ── */
-  .ls-active-list { display:flex; flex-direction:column; gap:5px; margin-bottom:6px; }
-  .ls-active-item {
-    display:flex; align-items:center; gap:8px;
-    padding:7px 10px;
-    background:rgba(99,102,241,.1);
-    border:1px solid rgba(99,102,241,.3);
-    border-radius:6px; font-size:12px;
-  }
-  .ls-active-badge { color:var(--teal); font-size:12px; flex-shrink:0; }
-  .ls-active-desc { flex:1; color:var(--text-dim); font-weight:500; }
-  .ls-empty-msg { font-size:11px; color:var(--muted); font-style:italic; padding:2px 0 6px; }
-  .ls-draft-form {
-    background:var(--surface-2); border:1px solid var(--border);
-    border-radius:6px; padding:8px 10px;
-    display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px;
-    margin-bottom:4px;
-  }
-  .ls-confirm-btn {
-    width:100%; padding:7px 12px;
-    background:linear-gradient(135deg,var(--teal) 0%,#0EA5E9 100%);
-    color:#fff; border:none; border-radius:6px;
-    font-size:12px; font-weight:700; cursor:pointer;
-    letter-spacing:.3px; transition:opacity .12s;
-  }
+  /* ── Lump Sum Rules ── */
+  .ls-active-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+  .ls-empty-msg   { font-size:11px; color:var(--muted); font-style:italic; padding:4px 0; }
+  .ls-card        { background:rgba(99,102,241,.08); border:1px solid rgba(99,102,241,.25); border-radius:7px; padding:9px 11px; display:flex; align-items:flex-start; gap:8px; }
+  .ls-card-body   { flex:1; min-width:0; }
+  .ls-card-amount { font-size:13px; font-weight:700; color:var(--accent-lt); }
+  .ls-card-detail { font-size:11px; color:var(--muted-lt); margin-top:2px; line-height:1.4; }
+  .ls-add-btn     { width:100%; padding:7px 10px; border:1.5px dashed var(--border-lt); border-radius:6px; background:none; color:var(--accent-lt); font-size:12px; font-weight:700; cursor:pointer; letter-spacing:.3px; transition:border-color .12s,color .12s; display:flex; align-items:center; justify-content:center; gap:5px; margin-top:2px; }
+  .ls-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .ls-form-panel  { background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .ls-month-row   { display:flex; gap:6px; }
+  .ls-month-row select { flex:2; padding:5px 7px; border:1px solid var(--border); border-radius:5px; font-size:12px; background:var(--surface-3); color:var(--text); outline:none; }
+  .ls-month-row input  { flex:1; min-width:58px; padding:5px 7px; border:1px solid var(--border); border-radius:5px; font-size:12px; background:var(--surface-3); color:var(--text); outline:none; }
+  .ls-month-row select:focus, .ls-month-row input:focus { border-color:var(--accent); }
+  .ls-confirm-btn { flex:2; padding:7px 12px; background:linear-gradient(135deg,var(--teal) 0%,#0EA5E9 100%); color:#fff; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; letter-spacing:.3px; transition:opacity .12s; }
   .ls-confirm-btn:hover { opacity:.85; }
-  .ls-draft-err { display:none; color:var(--red); font-size:11px; padding:2px 2px; flex-basis:100%; }
+  .ls-cancel-btn  { flex:1; padding:7px 10px; background:none; border:1px solid var(--border); border-radius:6px; color:var(--muted-lt); font-size:12px; font-weight:600; cursor:pointer; transition:border-color .12s; }
+  .ls-cancel-btn:hover { border-color:var(--border-lt); }
+  .ls-draft-err   { display:none; color:var(--red); font-size:11px; padding:2px 2px; flex-basis:100%; }
 
   /* ── Calculate Button ── */
   .calc-btn {
@@ -1111,68 +1103,80 @@
         </p>
 
         <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px;">
-        <p class="section-note" style="margin-bottom:6px;">One-off rules (applied on top of solver amount):</p>
+        <p class="section-note" style="margin-bottom:6px;">Scheduled Lump Sums</p>
 
-        <!-- Active confirmed rules -->
+        <!-- Active rules — always visible -->
         <div class="ls-active-list" id="lsActiveList">
-          <div class="ls-empty-msg" id="lsEmptyMsg">No active rules — configure one below and click Confirm.</div>
+          <div class="ls-empty-msg" id="lsEmptyMsg">No lump sum rules yet.</div>
         </div>
 
-        <!-- Draft form -->
-        <div class="ls-draft-form">
-          <div class="rule-field" style="min-width:130px;">
-            <label>Cadence</label>
-            <select id="lsDraftCadence" onchange="updateLsDraftCadence()">
-              <option value="once">One-time</option>
-              <option value="annually">Annually</option>
-              <option value="biannually">Bi-Annually</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-          <div class="rule-field" id="lsDraftMonthField">
-            <label id="lsDraftMonthLabel">At Month #</label>
-            <input type="number" id="lsDraftMonth" placeholder="e.g. 6" min="1" step="1">
-          </div>
+        <!-- Inline form (hidden until + Add Lump Sum clicked) -->
+        <div class="ls-form-panel" id="lsFormPanel" style="display:none">
+
           <div class="rule-field">
             <label>Amount</label>
             <div style="position:relative;display:flex;align-items:center;">
               <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
-              <input type="text" inputmode="decimal" id="lsDraftAmount" placeholder="e.g. 5,000" style="padding-left:20px;" oninput="formatCurrencyInput(this)">
+              <input type="text" inputmode="decimal" id="lsAmount" placeholder="e.g. 10,000"
+                     style="width:100%;padding:5px 7px 5px 20px;border:1px solid var(--border);border-radius:5px;font-size:12px;background:var(--surface-3);color:var(--text);outline:none;"
+                     oninput="formatCurrencyInput(this)">
             </div>
           </div>
-          <div id="lsDraftCustomSection" style="display:none;flex-basis:100%;margin-top:4px;padding:8px 10px;background:var(--surface-3);border-radius:5px;border:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Custom conditions — use one or both (lump sum fires at any matching month)</div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-              <div style="display:flex;flex-direction:column;gap:3px;">
-                <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Calendar month (yearly)</label>
-                <select id="lsDraftCalMonth" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface);color:var(--text);">
-                  <option value="">— skip —</option>
-                  <option value="1">January</option><option value="2">February</option>
-                  <option value="3">March</option><option value="4">April</option>
-                  <option value="5">May</option><option value="6">June</option>
-                  <option value="7">July</option><option value="8">August</option>
-                  <option value="9">September</option><option value="10">October</option>
-                  <option value="11">November</option><option value="12">December</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:flex-end;padding-bottom:6px;color:var(--muted);font-size:11px;font-weight:700;">AND / OR</div>
-              <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
-                <div style="display:flex;flex-direction:column;gap:3px;">
-                  <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Every N months</label>
-                  <input type="number" id="lsDraftInterval" placeholder="e.g. 4" min="1" step="1" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:80px;background:var(--surface);color:var(--text);">
-                </div>
-                <div style="display:flex;flex-direction:column;gap:3px;">
-                  <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">From loan month</label>
-                  <input type="number" id="lsDraftCustomStart" placeholder="1" min="1" step="1" style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;width:70px;background:var(--surface);color:var(--text);">
-                </div>
-              </div>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic;">Leave a condition blank to skip it.</div>
+
+          <div class="rule-field">
+            <label>Cadence</label>
+            <select id="lsCadence" onchange="onLsCadenceChange()">
+              <option value="once">One-Time</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="biannually">Bi-Annually</option>
+              <option value="annually" selected>Annually</option>
+              <option value="custom">Custom</option>
+            </select>
           </div>
-          <div class="ls-draft-err" id="lsDraftErr"></div>
-          <button class="ls-confirm-btn" onclick="confirmLsRule()">＋ Confirm Rule</button>
+
+          <div class="rule-field" id="lsIntervalField" style="display:none">
+            <label>Every N months</label>
+            <input type="number" id="lsInterval" min="1" step="1" placeholder="e.g. 3">
+          </div>
+
+          <div style="flex-basis:100%">
+            <label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:4px;">Start Month</label>
+            <div class="ls-month-row">
+              <select id="lsStartMonthName">
+                <option>January</option><option>February</option><option>March</option>
+                <option>April</option><option>May</option><option>June</option>
+                <option>July</option><option>August</option><option>September</option>
+                <option>October</option><option>November</option><option>December</option>
+              </select>
+              <input type="number" id="lsStartYear" min="2020" max="2080" placeholder="Year">
+            </div>
+          </div>
+
+          <div style="flex-basis:100%" id="lsEndMonthField">
+            <label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:4px;">End Month <span style="font-weight:400;font-style:italic;text-transform:none;">(optional — blank = payoff)</span></label>
+            <div class="ls-month-row">
+              <select id="lsEndMonthName">
+                <option value="">— no end —</option>
+                <option>January</option><option>February</option><option>March</option>
+                <option>April</option><option>May</option><option>June</option>
+                <option>July</option><option>August</option><option>September</option>
+                <option>October</option><option>November</option><option>December</option>
+              </select>
+              <input type="number" id="lsEndYear" min="2020" max="2080" placeholder="Year">
+            </div>
+          </div>
+
+          <div class="ls-draft-err" id="lsFormErr"></div>
+
+          <div style="display:flex;gap:6px;flex-basis:100%">
+            <button class="ls-cancel-btn" onclick="cancelLsForm()">Cancel</button>
+            <button class="ls-confirm-btn" onclick="confirmLsRule()">＋ Add Rule</button>
+          </div>
         </div>
+
+        <!-- Add button -->
+        <button class="ls-add-btn" id="lsAddBtn" onclick="showLsForm()">＋ Add Lump Sum</button>
       </div>
     </div><!-- /Lump Sum Contributions -->
 
@@ -1468,111 +1472,123 @@ function addContribRule() {
 }
 
 // ── Lump Sum Rules ───────────────────────────────
-const LS_CAL_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const LS_MON_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-function updateLsDraftCadence() {
-  const cadence = document.getElementById('lsDraftCadence').value;
-  const monthField    = document.getElementById('lsDraftMonthField');
-  const monthLabel    = document.getElementById('lsDraftMonthLabel');
-  const customSection = document.getElementById('lsDraftCustomSection');
-  if (cadence === 'custom') {
-    monthField.style.display    = 'none';
-    customSection.style.display = '';
-  } else {
-    monthField.style.display    = '';
-    monthLabel.textContent      = cadence === 'once' ? 'At Month #' : 'Starting Month #';
-    customSection.style.display = 'none';
+function showLsForm() {
+  const startDate = document.getElementById('startDate').value;
+  if (startDate) {
+    const parts = startDate.split('-');
+    document.getElementById('lsStartMonthName').value = LS_MON_NAMES[parseInt(parts[1], 10) - 1];
+    document.getElementById('lsStartYear').value      = parts[0];
   }
+  document.getElementById('lsFormPanel').style.display = '';
+  document.getElementById('lsAddBtn').style.display    = 'none';
+  document.getElementById('lsFormErr').style.display   = 'none';
+}
+
+function cancelLsForm() {
+  resetLsForm();
+  document.getElementById('lsFormPanel').style.display = 'none';
+  document.getElementById('lsAddBtn').style.display    = '';
+}
+
+function onLsCadenceChange() {
+  const cadence = document.getElementById('lsCadence').value;
+  document.getElementById('lsIntervalField').style.display  = cadence === 'custom' ? '' : 'none';
+  document.getElementById('lsEndMonthField').style.display  = cadence === 'once'   ? 'none' : '';
 }
 
 function confirmLsRule() {
-  const errEl = document.getElementById('lsDraftErr');
+  const errEl = document.getElementById('lsFormErr');
   errEl.style.display = 'none';
 
-  const cadence   = document.getElementById('lsDraftCadence').value;
-  const amountVal = parseCurrency(document.getElementById('lsDraftAmount').value);
-
+  const amountVal = parseCurrency(document.getElementById('lsAmount').value);
   if (isNaN(amountVal) || amountVal <= 0) {
-    errEl.textContent = 'Amount is required and must be greater than $0.';
+    errEl.textContent = 'Amount is required and must be > $0.';
     errEl.style.display = 'block';
     return;
   }
 
-  let rule, label;
+  const cadence      = document.getElementById('lsCadence').value;
+  const startMonName = document.getElementById('lsStartMonthName').value;
+  const startYear    = parseInt(document.getElementById('lsStartYear').value, 10);
 
+  if (!startMonName || isNaN(startYear)) {
+    errEl.textContent = 'Start month and year are required.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const startMonthStr = `${startMonName} ${startYear}`;
+
+  const endMonName = document.getElementById('lsEndMonthName').value;
+  const endYear    = parseInt(document.getElementById('lsEndYear').value, 10);
+  const endMonthStr = (endMonName && !isNaN(endYear)) ? `${endMonName} ${endYear}` : '';
+
+  let interval = null;
   if (cadence === 'custom') {
-    const calMonthVal   = document.getElementById('lsDraftCalMonth').value;
-    const intervalVal   = document.getElementById('lsDraftInterval').value;
-    const customStVal   = document.getElementById('lsDraftCustomStart').value;
-    const calMonth      = calMonthVal   ? parseInt(calMonthVal,   10) : NaN;
-    const interval      = intervalVal   ? parseInt(intervalVal,   10) : NaN;
-    const customStart   = customStVal   ? parseInt(customStVal,   10) : NaN;
-
-    if (isNaN(calMonth) && isNaN(interval)) {
-      errEl.textContent = 'Custom rules need at least one condition: a calendar month or an interval.';
+    interval = parseInt(document.getElementById('lsInterval').value, 10);
+    if (isNaN(interval) || interval < 1) {
+      errEl.textContent = 'Custom cadence requires an interval of at least 1 month.';
       errEl.style.display = 'block';
       return;
     }
-
-    rule = { cadence: 'custom', amount: amountVal };
-    const parts = [];
-    if (!isNaN(calMonth) && calMonth >= 1 && calMonth <= 12) {
-      rule.calendarMonth = calMonth;
-      parts.push('every ' + LS_CAL_NAMES[calMonth]);
-    }
-    if (!isNaN(interval) && interval >= 1) {
-      rule.interval   = interval;
-      rule.startMonth = (!isNaN(customStart) && customStart >= 1) ? customStart : 1;
-      parts.push(`every ${interval} mo from Mo.${rule.startMonth}`);
-    }
-    label = `Custom: ${parts.join(' & ')} · ${fmt(amountVal)}`;
-
-  } else {
-    const monthRaw   = parseInt(document.getElementById('lsDraftMonth').value, 10);
-    const startMonth = (!isNaN(monthRaw) && monthRaw >= 1) ? monthRaw : 1;
-    rule  = { cadence, amount: amountVal, startMonth };
-
-    const cadenceLabel = { once:'One-time', annually:'Annually', biannually:'Every 6 mo', quarterly:'Quarterly' };
-    const monthPart    = cadence === 'once' ? `at Month ${startMonth}` : `from Month ${startMonth}`;
-    label = `${cadenceLabel[cadence]} ${monthPart} · ${fmt(amountVal)}`;
   }
 
+  const rule = { amount: amountVal, cadence, startMonthStr, endMonthStr, interval };
   lsRuleIdCounter++;
-  lsRulesData.push({ id: lsRuleIdCounter, rule, label });
+  lsRulesData.push({ id: lsRuleIdCounter, rule });
   renderLsActiveRules();
-
-  // Reset draft form
-  document.getElementById('lsDraftAmount').value = '';
-  document.getElementById('lsDraftMonth').value  = '';
-  document.getElementById('lsDraftCadence').value = 'once';
-  document.getElementById('lsDraftCalMonth').value = '';
-  document.getElementById('lsDraftInterval').value = '';
-  document.getElementById('lsDraftCustomStart').value = '';
-  updateLsDraftCadence();
+  cancelLsForm();
 }
 
 function removeLsRule(id) {
   lsRulesData = lsRulesData.filter(r => r.id !== id);
   renderLsActiveRules();
+  updateHousingSubtotal();
+}
+
+function resetLsForm() {
+  document.getElementById('lsAmount').value         = '';
+  document.getElementById('lsCadence').value        = 'annually';
+  document.getElementById('lsStartMonthName').value = 'January';
+  document.getElementById('lsStartYear').value      = '';
+  document.getElementById('lsEndMonthName').value   = '';
+  document.getElementById('lsEndYear').value        = '';
+  document.getElementById('lsInterval').value       = '';
+  document.getElementById('lsIntervalField').style.display = 'none';
+  document.getElementById('lsEndMonthField').style.display = '';
+  document.getElementById('lsFormErr').style.display = 'none';
 }
 
 function renderLsActiveRules() {
   const container = document.getElementById('lsActiveList');
   const emptyMsg  = document.getElementById('lsEmptyMsg');
-  container.querySelectorAll('.ls-active-item').forEach(el => el.remove());
+  container.querySelectorAll('.ls-card').forEach(el => el.remove());
+
   if (lsRulesData.length === 0) {
     emptyMsg.style.display = '';
   } else {
     emptyMsg.style.display = 'none';
-    lsRulesData.forEach(({ id, label }) => {
-      const item = document.createElement('div');
-      item.className = 'ls-active-item';
-      item.id = 'lsRule-' + id;
-      item.innerHTML =
-        `<span class="ls-active-badge">✓</span>` +
-        `<span class="ls-active-desc">${label}</span>` +
+    const CADENCE_LABEL = {
+      once: 'One-Time', monthly: 'Monthly', quarterly: 'Quarterly',
+      biannually: 'Bi-Annually', annually: 'Annually', custom: 'Custom',
+    };
+    lsRulesData.forEach(({ id, rule }) => {
+      const cadenceStr  = CADENCE_LABEL[rule.cadence] || rule.cadence;
+      const intervalStr = rule.cadence === 'custom' ? ` · every ${rule.interval} mo` : '';
+      const endStr      = rule.endMonthStr ? ` → ${rule.endMonthStr}` : ' → payoff';
+      const rangeStr    = rule.cadence === 'once' ? rule.startMonthStr : `${rule.startMonthStr}${endStr}`;
+
+      const card = document.createElement('div');
+      card.className = 'ls-card';
+      card.id = 'lsRule-' + id;
+      card.innerHTML =
+        `<div class="ls-card-body">` +
+          `<div class="ls-card-amount">${fmt(rule.amount)}</div>` +
+          `<div class="ls-card-detail">${cadenceStr}${intervalStr} · ${rangeStr}</div>` +
+        `</div>` +
         `<button class="rule-remove" title="Remove rule" onclick="removeLsRule(${id})">✕</button>`;
-      container.appendChild(item);
+      container.appendChild(card);
     });
   }
   updateHousingSubtotal();
@@ -1615,40 +1631,47 @@ function getContribForMonth(baseContrib, changeRules, monthNum) {
   return amount;
 }
 
+function monthStrToLoanMonth(monthStr, startDateStr) {
+  if (!monthStr) return null;
+  const parts    = monthStr.trim().split(' ');
+  const calMonth = LS_MON_NAMES.indexOf(parts[0]) + 1;
+  const calYear  = parseInt(parts[1], 10);
+  if (calMonth < 1 || isNaN(calYear)) return null;
+  const [sy, sm] = startDateStr.split('-').map(Number);
+  return (calYear - sy) * 12 + (calMonth - sm) + 1;
+}
+
 function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
   let total = 0;
   for (const r of lsRules) {
-    const s = r.startMonth || 1;
+    // New format uses startMonthStr (Month Name + Year); solver uses startMonth integer
+    const s = r.startMonthStr
+      ? monthStrToLoanMonth(r.startMonthStr, startDateStr)
+      : (r.startMonth || 1);
+    if (s === null || monthNum < s) continue;
+
+    const e = r.endMonthStr ? monthStrToLoanMonth(r.endMonthStr, startDateStr) : null;
+    if (e !== null && monthNum > e) continue;
+
     switch (r.cadence) {
       case 'once':
         if (monthNum === s) total += r.amount;
         break;
+      case 'monthly':
+        total += r.amount;
+        break;
       case 'annually':
-        if (monthNum >= s && (monthNum - s) % 12 === 0) total += r.amount;
+        if ((monthNum - s) % 12 === 0) total += r.amount;
         break;
       case 'biannually':
-        if (monthNum >= s && (monthNum - s) % 6  === 0) total += r.amount;
+        if ((monthNum - s) % 6  === 0) total += r.amount;
         break;
       case 'quarterly':
-        if (monthNum >= s && (monthNum - s) % 3  === 0) total += r.amount;
+        if ((monthNum - s) % 3  === 0) total += r.amount;
         break;
-      case 'custom': {
-        // Union of two independent sub-conditions
-        let fires = false;
-        // Sub-condition 1: specific calendar month of year (fires every year for life of loan)
-        if (r.calendarMonth) {
-          const smNum    = parseInt((startDateStr || '').split('-')[1] || '1', 10);
-          const calMonth = ((smNum + monthNum - 2) % 12) + 1;
-          if (calMonth === r.calendarMonth) fires = true;
-        }
-        // Sub-condition 2: every N months starting from loan month r.startMonth
-        if (!fires && r.interval > 0) {
-          const s2 = r.startMonth || 1;
-          if (monthNum >= s2 && (monthNum - s2) % r.interval === 0) fires = true;
-        }
-        if (fires) total += r.amount;
+      case 'custom':
+        if (r.interval > 0 && (monthNum - s) % r.interval === 0) total += r.amount;
         break;
-      }
     }
   }
   return total;
@@ -2442,7 +2465,8 @@ function updateHousingSubtotal() {
     lines.push('Solver lump sum: will be calculated when you run Calculate');
   }
   userRules.forEach(r => {
-    lines.push(`Rule: ${fmt(r.amount)} starting month ${r.startMonth} (${cadenceLabel[r.cadence] || r.cadence})`);
+    const cStr = r.cadence === 'custom' ? `every ${r.interval} mo` : (cadenceLabel[r.cadence] || r.cadence);
+    lines.push(`Lump sum: ${fmt(r.amount)} ${cStr} from ${r.startMonthStr || `month ${r.startMonth}`}${r.endMonthStr ? ` → ${r.endMonthStr}` : ''}`);
   });
   if (lines.length > 0) {
     lumpsEl.innerHTML = lines.join('<br>');
