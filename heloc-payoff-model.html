@@ -2070,14 +2070,15 @@ function bisect(fn, lo, hi, target, tol, maxIter) {
   let a = lo, b = hi;
   let fa = fn(a) - target;
   let fb = fn(b) - target;
-  if (Math.abs(fa) <= tol) return { found: true, value: a };
-  if (Math.abs(fb) <= tol) return { found: true, value: b };
+  if (fa <= 0 && Math.abs(fa) <= tol) return { found: true, value: a };
+  if (fb <= 0 && Math.abs(fb) <= tol) return { found: true, value: b };
   // Root must be bracketed — opposite signs
   if (fa * fb > 0) return { found: false, value: null, atLo: fa + target, atHi: fb + target };
   for (let i = 0; i < maxIter; i++) {
     const mid = (a + b) / 2;
     const fm  = fn(mid) - target;
-    if (Math.abs(fm) <= tol || (b - a) < 1e-10) return { found: true, value: mid };
+    if ((b - a) < 1e-10) return { found: true, value: mid };
+    if (fm <= 0 && Math.abs(fm) <= tol) return { found: true, value: mid };
     if (fa * fm <= 0) { b = mid; fb = fm; }
     else              { a = mid; fa = fm; }
   }
