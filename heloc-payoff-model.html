@@ -1638,13 +1638,14 @@ function monthStrToLoanMonth(monthStr, startDateStr) {
   const calYear  = parseInt(parts[1], 10);
   if (calMonth < 1 || isNaN(calYear)) return null;
   const [sy, sm] = startDateStr.split('-').map(Number);
-  return (calYear - sy) * 12 + (calMonth - sm) + 1;
+  const result = (calYear - sy) * 12 + (calMonth - sm) + 1;
+  if (window.LS_DEBUG) console.log('[monthStrToLoanMonth]', JSON.stringify(monthStr), '+ startDate', startDateStr, '=> calMonth=' + calMonth + ' calYear=' + calYear + ' sy=' + sy + ' sm=' + sm + ' => loanMonth=' + result);
+  return result;
 }
 
 function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
   let total = 0;
   for (const r of lsRules) {
-    // New format uses startMonthStr (Month Name + Year); solver uses startMonth integer
     const s = r.startMonthStr
       ? monthStrToLoanMonth(r.startMonthStr, startDateStr)
       : (r.startMonth || 1);
@@ -1653,25 +1654,23 @@ function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
     const e = r.endMonthStr ? monthStrToLoanMonth(r.endMonthStr, startDateStr) : null;
     if (e !== null && monthNum > e) continue;
 
+    let fired = false;
     switch (r.cadence) {
       case 'once':
-        if (monthNum === s) total += r.amount;
-        break;
+        if (monthNum === s)                                     { fired = true; total += r.amount; } break;
       case 'monthly':
-        total += r.amount;
-        break;
+        fired = true; total += r.amount; break;
       case 'annually':
-        if ((monthNum - s) % 12 === 0) total += r.amount;
-        break;
+        if ((monthNum - s) % 12 === 0)                         { fired = true; total += r.amount; } break;
       case 'biannually':
-        if ((monthNum - s) % 6  === 0) total += r.amount;
-        break;
+        if ((monthNum - s) % 6  === 0)                         { fired = true; total += r.amount; } break;
       case 'quarterly':
-        if ((monthNum - s) % 3  === 0) total += r.amount;
-        break;
+        if ((monthNum - s) % 3  === 0)                         { fired = true; total += r.amount; } break;
       case 'custom':
-        if (r.interval > 0 && (monthNum - s) % r.interval === 0) total += r.amount;
-        break;
+        if (r.interval > 0 && (monthNum - s) % r.interval === 0) { fired = true; total += r.amount; } break;
+    }
+    if (window.LS_DEBUG && (fired || monthNum <= 3)) {
+      console.log('[getLumpSumForMonth] monthNum=' + monthNum + ' cadence=' + r.cadence + ' s=' + s + ' (monthNum-s)=' + (monthNum - s) + ' mod=' + (r.cadence === 'annually' ? (monthNum-s)%12 : r.cadence === 'biannually' ? (monthNum-s)%6 : r.cadence === 'quarterly' ? (monthNum-s)%3 : '-') + ' FIRED=' + fired + ' lumpSum=' + (fired ? r.amount : 0));
     }
   }
   return total;
