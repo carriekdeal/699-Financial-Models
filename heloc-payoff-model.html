@@ -579,48 +579,44 @@
     flex-shrink: 0;
   }
 
-  /* ── Housing-total read-only display ── */
-  .housing-total-display {
+  /* ── Housing budget pre-calculate subtotal ── */
+  .housing-subtotal {
     background: #f0f9ff;
     border: 1.5px solid #7dd3fc;
     border-radius: 6px;
-    padding: 10px 12px;
-    margin-top: 10px;
+    padding: 12px 14px;
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
   }
-  .housing-total-display .htd-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    color: #0369a1;
-    margin-bottom: 6px;
+  .hs-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12.5px;
+    color: var(--muted);
   }
-  .housing-total-display .htd-value {
-    font-size: 18px;
+  .hs-row .hs-label { font-weight: 500; }
+  .hs-row .hs-val   { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .hs-divider { border: none; border-top: 1px solid #bae6fd; margin: 3px 0; }
+  .hs-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 13.5px;
     font-weight: 700;
     color: #0c4a6e;
   }
-  .housing-total-display .htd-value.placeholder { color: #94a3b8; font-size: 15px; }
-  .housing-total-display .htd-equation {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    align-items: center;
+  .hs-lumps {
     margin-top: 6px;
-    font-size: 11px;
+    font-size: 11.5px;
+    color: var(--blue-lt);
+    font-style: italic;
+    line-height: 1.6;
   }
-  .htd-chip {
-    background: #fff;
-    border: 1px solid #bae6fd;
-    border-radius: 4px;
-    padding: 2px 7px;
-    color: #0369a1;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .htd-op { color: #64748b; font-weight: 500; }
 
-  /* ── Housing range metric card ── */
+  /* ── Housing metric card (summary) ── */
   .metric-card.housing {
     grid-column: span 2;
     border-color: #7dd3fc;
@@ -754,7 +750,8 @@
             <span class="field-label">Interest Rate (Annual)</span>
             <div class="field-input-wrap">
               <input type="number" class="field-input has-suffix" id="interestRate"
-                     placeholder="e.g. 8.5" step="0.01" min="0" max="50">
+                     placeholder="e.g. 8.5" step="0.01" min="0" max="50"
+                     oninput="updateHousingSubtotal()">
               <span class="field-suffix">%</span>
             </div>
           </div>
@@ -768,7 +765,8 @@
             <div class="field-input-wrap">
               <span class="field-prefix">$</span>
               <input type="number" class="field-input has-prefix" id="debtAmount"
-                     placeholder="e.g. 75000" step="100" min="0">
+                     placeholder="e.g. 75000" step="100" min="0"
+                     oninput="updateHousingSubtotal()">
             </div>
           </div>
           <button class="lock-btn" id="lock-debt" title="Lock / Unlock" onclick="toggleLock('debt')">🔓</button>
@@ -782,13 +780,14 @@
             <span class="field-label">Repayment Period Min. Payment (% of Balance)</span>
             <div class="field-input-wrap">
               <input type="number" class="field-input has-suffix" id="minPaymentPct"
-                     placeholder="e.g. 1" step="0.01" min="0" max="100" value="1">
+                     placeholder="e.g. 1" step="0.01" min="0" max="100" value="1"
+                     oninput="updateHousingSubtotal()">
               <span class="field-suffix">%</span>
             </div>
           </div>
           <button class="lock-btn" id="lock-minPmt" title="Lock / Unlock" onclick="toggleLock('minPmt')">🔓</button>
         </div>
-        <p class="section-note"><strong>Draw period (yrs 1–20):</strong> interest-only minimum. <strong>Repayment (yrs 21–40):</strong> this % of outstanding balance — recalculates each month as balance declines.</p>
+        <p class="section-note">Applied identically in both draw and repayment periods: 1% of outstanding balance each month. Balance declines from month 1.</p>
 
         <hr class="divider">
 
@@ -833,40 +832,72 @@
       </div>
     </div><!-- /Core Parameters -->
 
-    <!-- ── Additional Monthly Contributions ── -->
+    <!-- ── Monthly Housing Budget ── -->
     <div class="card">
-      <div class="card-header"><span class="icon">📅</span> Additional Monthly Contributions</div>
+      <div class="card-header"><span class="icon">🏠</span> Monthly Housing Budget</div>
       <div class="card-body">
 
-        <div class="field-row" id="row-addlContrib">
+        <!-- Target Total Monthly Housing Payment -->
+        <div class="field-row" id="row-targetHousingPmt">
           <div class="field-inner">
-            <span class="field-label">Starting Additional Contribution</span>
+            <span class="field-label">Target Total Monthly Housing Payment</span>
             <div class="field-input-wrap">
               <span class="field-prefix">$</span>
-              <input type="number" class="field-input has-prefix" id="addlContrib"
-                     placeholder="e.g. 500" step="50" min="0">
+              <input type="number" class="field-input has-prefix" id="targetHousingPmt"
+                     placeholder="e.g. 3500" step="50" min="0"
+                     oninput="updateHousingSubtotal()">
             </div>
           </div>
-          <button class="lock-btn" id="lock-addlContrib" title="Lock / Unlock" onclick="toggleLock('addlContrib')">🔓</button>
-        </div>
-        <p class="section-note">Define amount changes at specific months below.</p>
-
-        <div class="rules-list" id="contribRulesList">
-          <!-- JS-rendered contribution change rows appear here -->
+          <button class="lock-btn" id="lock-targetHousingPmt" title="Lock / Unlock"
+                  onclick="toggleLock('targetHousingPmt')">🔓</button>
         </div>
 
-        <button class="add-rule-btn" onclick="addContribRule()">
-          ＋ Add Contribution Change
-        </button>
+        <!-- Fixed Monthly Obligation -->
+        <div class="field-row" id="row-fixedObligations">
+          <div class="field-inner">
+            <span class="field-label">Fixed Monthly Obligation</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="number" class="field-input has-prefix" id="fixedObligations"
+                     placeholder="e.g. 2307" step="1" min="0" value="2307"
+                     oninput="updateHousingSubtotal()">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-fixedObligations" title="Lock / Unlock"
+                  onclick="toggleLock('fixedObligations')">🔓</button>
+        </div>
+
+        <!-- Pre-calculate subtotal (updates in real time) -->
+        <div class="housing-subtotal">
+          <div class="hs-row">
+            <span class="hs-label">Fixed Monthly Obligation</span>
+            <span class="hs-val" id="hs-fixed">$2,307.00</span>
+          </div>
+          <div class="hs-row">
+            <span class="hs-label">+ HELOC Min. Payment <em style="font-weight:400">(mo. 1 est.)</em></span>
+            <span class="hs-val" id="hs-min">—</span>
+          </div>
+          <div class="hs-row">
+            <span class="hs-label">+ Additional Principal <em style="font-weight:400">(derived)</em></span>
+            <span class="hs-val" id="hs-addl">—</span>
+          </div>
+          <hr class="hs-divider">
+          <div class="hs-total">
+            <span>= Target Monthly Housing</span>
+            <span id="hs-total">—</span>
+          </div>
+          <div class="hs-lumps" id="hs-lumps" style="display:none"></div>
+        </div>
+        <p class="section-note">Additional Principal grows each month as the HELOC min. shrinks, keeping the total constant.</p>
 
       </div>
-    </div><!-- /Additional Monthly Contributions -->
+    </div><!-- /Monthly Housing Budget -->
 
     <!-- ── Lump Sum Contributions ── -->
     <div class="card">
       <div class="card-header"><span class="icon">💰</span> Lump Sum Contributions</div>
       <div class="card-body">
-        <p class="section-note">Multiple rules may run simultaneously.</p>
+        <p class="section-note">Applied on top of the monthly target — does not change the housing total.</p>
 
         <div class="rules-list" id="lumpSumRulesList">
           <!-- JS-rendered lump sum rows appear here -->
@@ -877,44 +908,6 @@
         </button>
       </div>
     </div><!-- /Lump Sum Contributions -->
-
-    <!-- ── Monthly Housing Budget ── -->
-    <div class="card">
-      <div class="card-header"><span class="icon">🏠</span> Monthly Housing Budget</div>
-      <div class="card-body">
-
-        <!-- Fixed Monthly Obligations -->
-        <div class="field-row" id="row-fixedObligations">
-          <div class="field-inner">
-            <span class="field-label">Fixed Monthly Obligations</span>
-            <div class="field-input-wrap">
-              <span class="field-prefix">$</span>
-              <input type="number" class="field-input has-prefix" id="fixedObligations"
-                     placeholder="e.g. 2307" step="1" min="0" value="2307">
-            </div>
-          </div>
-          <button class="lock-btn" id="lock-fixedObligations" title="Lock / Unlock"
-                  onclick="toggleLock('fixedObligations')">🔓</button>
-        </div>
-        <p class="section-note">Static each month (e.g. mortgage, insurance). Does not affect HELOC solver.</p>
-
-        <!-- Total Monthly Housing Payment (calculated, read-only) -->
-        <div class="housing-total-display" id="housingTotalDisplay">
-          <div class="htd-label">Total Monthly Housing Payment</div>
-          <div class="htd-value placeholder" id="htd-value">Run a calculation to see</div>
-          <div class="htd-equation" id="htd-equation" style="display:none">
-            <span class="htd-chip" id="htd-fixed">—</span>
-            <span class="htd-op">+</span>
-            <span class="htd-chip" id="htd-min">—</span>
-            <span class="htd-op">+</span>
-            <span class="htd-chip" id="htd-addl">—</span>
-            <span class="htd-op">=</span>
-            <span class="htd-chip" style="border-color:#0369a1;background:#e0f2fe;color:#0c4a6e" id="htd-total">—</span>
-          </div>
-        </div>
-
-      </div>
-    </div><!-- /Monthly Housing Budget -->
 
     <!-- ── Calculate ── -->
     <button class="calc-btn" onclick="calculate()">
@@ -933,33 +926,38 @@
         <div class="metrics-grid">
 
           <div class="metric-card metric-featured">
-            <span class="metric-label">Total Monthly Payment</span>
+            <span class="metric-label">Target Monthly Housing Payment</span>
             <span class="metric-value placeholder" id="m-monthlyPayment">—</span>
-            <span class="metric-sub">Month 1 starting payment</span>
+            <span class="metric-sub">Constant every month</span>
             <div class="metric-breakdown" id="m-paymentBreakdown">
               <div class="breakdown-chip">
-                <span class="breakdown-chip-label">Min. Payment</span>
+                <span class="breakdown-chip-label">Fixed</span>
+                <span class="breakdown-chip-value" id="m-fixedObl">—</span>
+              </div>
+              <span class="breakdown-plus">+</span>
+              <div class="breakdown-chip">
+                <span class="breakdown-chip-label">HELOC Min.</span>
                 <span class="breakdown-chip-value" id="m-minPmt">—</span>
               </div>
               <span class="breakdown-plus">+</span>
               <div class="breakdown-chip">
-                <span class="breakdown-chip-label">Additional</span>
+                <span class="breakdown-chip-label">Additional↑</span>
                 <span class="breakdown-chip-value" id="m-addlContrib">—</span>
               </div>
             </div>
           </div>
 
-          <!-- Total Monthly Housing Payment range -->
+          <!-- HELOC payment range (min shrinks, addl grows) -->
           <div class="metric-card housing">
-            <span class="metric-label">Total Monthly Housing Payment</span>
+            <span class="metric-label">HELOC Payment Range</span>
             <span class="metric-value placeholder" id="m-housingRange">—</span>
             <div class="housing-range-sub" id="m-housingRangeSub" style="display:none">
               <span class="housing-range-tag" id="m-housingStart">—</span>
-              <span style="color:var(--muted)">start → </span>
+              <span style="color:var(--muted)">mo. 1 → </span>
               <span class="housing-range-tag" id="m-housingEnd">—</span>
               <span style="color:var(--muted)">final</span>
             </div>
-            <span class="metric-sub">Fixed + Min. HELOC + Additional</span>
+            <span class="metric-sub">Min. + Additional (Fixed excluded) · Min. shrinks, Additional grows</span>
           </div>
 
           <div class="metric-card warn">
@@ -1136,6 +1134,7 @@ function toggleLock(field) {
   const m = String(today.getMonth() + 1).padStart(2,'0');
   const d = String(today.getDate()).padStart(2,'0');
   document.getElementById('startDate').value = `${y}-${m}-${d}`;
+  updateHousingSubtotal();
 })();
 
 // ── Contribution Change Rules ────────────────────
@@ -1330,7 +1329,8 @@ function monthNumToFullDate(startDateStr, monthOffset) {
  */
 function runAmortization(params) {
   const { balance, annualRate, minPctPerMonth, baseContrib,
-          contribRules, lsRules, startDateStr, maxMonths } = params;
+          contribRules, lsRules, startDateStr, maxMonths,
+          housingTarget, fixedObligation } = params;
 
   const monthlyRate = annualRate / 100 / 12;
   const limit = maxMonths ?? MAX_LOAN_MONTHS;
@@ -1349,7 +1349,10 @@ function runAmortization(params) {
     // 1% of outstanding balance applies in both draw and repayment periods
     const minPmt = round2(startBal * minPctPerMonth / 100);
 
-    const addl    = round2(getContribForMonth(baseContrib, contribRules, n));
+    // When a housing target is set, derive addl to hold total constant
+    const addl = housingTarget > 0
+      ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
+      : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
     const lumpSum = round2(getLumpSumForMonth(lsRules, n));
 
     // Total payment capped so we never overpay
@@ -1706,14 +1709,13 @@ function updateSummary(schedule, params, baseline) {
   // First-month payment components
   const firstRow   = schedule[0];
   const lastRow    = schedule[schedule.length - 1];
-  const minPmtAmt  = firstRow.minPmt;
-  const addlAmt    = firstRow.addlContrib;
-  const monthlyEst = round2(minPmtAmt + addlAmt);
+  const fixedObl   = lastFixedObligations;
+  const housingTarget = params.housingTarget || 0;
 
-  // Housing payment range (month 1 = highest, last month = lowest)
-  const fixedObl        = lastFixedObligations;
-  const housingStart    = round2(fixedObl + firstRow.minPmt + firstRow.addlContrib);
-  const housingEnd      = round2(fixedObl + lastRow.minPmt  + lastRow.addlContrib);
+  // Target housing = constant; HELOC portion (min + addl) varies month to month
+  const helocStart = round2(firstRow.minPmt + firstRow.addlContrib);
+  const helocEnd   = round2(lastRow.minPmt  + lastRow.addlContrib);
+  const totalHousing = housingTarget > 0 ? housingTarget : round2(fixedObl + helocStart);
 
   // Baseline comparison (min-only: interest-only draw → % of balance repayment)
   const baselinePaidOff  = baseline.length > 0 && baseline[baseline.length-1].endBal <= 0.01;
@@ -1723,9 +1725,10 @@ function updateSummary(schedule, params, baseline) {
   const interestSaved    = round2(baselineInterest - totalInterest);
   const monthsSaved      = baselinePaidOff ? (baseline.length - payoffMonths) : null;
 
-  setText('m-monthlyPayment', fmt(monthlyEst));
-  setText('m-minPmt',         fmt(minPmtAmt));
-  setText('m-addlContrib',    addlAmt > 0 ? fmt(addlAmt) : '$0.00');
+  setText('m-monthlyPayment', fmt(totalHousing));
+  setText('m-fixedObl',       fmt(fixedObl));
+  setText('m-minPmt',         fmt(firstRow.minPmt));
+  setText('m-addlContrib',    fmt(firstRow.addlContrib));
   setText('m-totalInterest',  fmt(totalInterest));
   setText('m-totalPaid',      fmt(round2(totalPaid)));
   setText('m-payoffDate',    payoffDateFull);
@@ -1735,30 +1738,15 @@ function updateSummary(schedule, params, baseline) {
     ? formatMonths(monthsSaved)
     : baselinePaidOff ? '—' : 'N/A — min-only doesn\'t pay off in 40 yrs');
 
-  // Housing range metric card
-  setText('m-housingRange', fmt(housingStart) + ' → ' + fmt(housingEnd));
-  setText('m-housingStart',  fmt(housingStart));
-  setText('m-housingEnd',    fmt(housingEnd));
+  // HELOC payment range card (min shrinks, addl grows, total stays constant)
+  setText('m-housingRange', fmt(helocStart) + ' → ' + fmt(helocEnd));
+  setText('m-housingStart',  fmt(helocStart));
+  setText('m-housingEnd',    fmt(helocEnd));
   document.getElementById('m-housingRange').classList.remove('placeholder');
   document.getElementById('m-housingRangeSub').style.display = '';
 
   // Show the HELOC breakdown row
   document.getElementById('m-paymentBreakdown').classList.add('visible');
-
-  // Update left-panel housing total equation display
-  const htdEq = document.getElementById('htd-equation');
-  if (htdEq) {
-    setText('htd-fixed', fmt(fixedObl) + ' fixed');
-    setText('htd-min',   fmt(firstRow.minPmt) + ' min');
-    setText('htd-addl',  fmt(firstRow.addlContrib) + ' addl');
-    setText('htd-total', fmt(housingStart) + ' mo 1');
-    htdEq.style.display = '';
-    const htdVal = document.getElementById('htd-value');
-    if (htdVal) {
-      htdVal.textContent = fmt(housingStart) + ' → ' + fmt(housingEnd);
-      htdVal.classList.remove('placeholder');
-    }
-  }
 
   // Remove placeholder styling
   ['m-monthlyPayment','m-totalInterest','m-totalPaid','m-payoffDate','m-interestSaved','m-timeSaved']
@@ -1821,13 +1809,13 @@ function payoffDateToMonths(startDateStr, payoffDateStr) {
 }
 
 // Return the first field name from the priority list that is NOT locked
-const SOLVE_PRIORITY = ['addlContrib', 'minPmt', 'rate', 'debt'];
-const PARAM_KEY = { addlContrib: 'baseContrib', minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
+const SOLVE_PRIORITY = ['targetHousingPmt', 'minPmt', 'rate', 'debt'];
+const PARAM_KEY = { targetHousingPmt: 'housingTarget', minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
 const SOLVE_LABEL = {
-  addlContrib: 'Additional Monthly Contribution',
-  minPmt:      'Minimum Monthly Payment %',
-  rate:        'Annual Interest Rate',
-  debt:        'Debt Amount',
+  targetHousingPmt: 'Target Monthly Housing Payment',
+  minPmt:           'Minimum Monthly Payment %',
+  rate:             'Annual Interest Rate',
+  debt:             'Debt Amount',
 };
 
 function getFirstFreeVar() {
@@ -1836,20 +1824,18 @@ function getFirstFreeVar() {
 
 // Write solved value back to the appropriate input field
 function applySolvedValue(field, value) {
-  const ids = { addlContrib: 'addlContrib', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
+  const ids = { targetHousingPmt: 'targetHousingPmt', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
   const el  = document.getElementById(ids[field]);
   if (!el) return;
   el.value = value.toFixed(field === 'minPmt' ? 4 : 2);
-  // Brief highlight to draw attention to the updated field
   el.style.transition = 'background 0.4s';
   el.style.background = '#d1fae5';
-  setTimeout(() => { el.style.background = ''; }, 1500);
+  setTimeout(() => { el.style.background = ''; updateHousingSubtotal(); }, 1500);
 }
 
-// Show/clear the "✓ Solved" badge on the field that was solved for
 function showSolvedBadge(field) {
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
-  const ids = { addlContrib: 'row-addlContrib', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
+  const ids = { targetHousingPmt: 'row-targetHousingPmt', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
   const row = document.getElementById(ids[field]);
   if (!row) return;
   const lbl = row.querySelector('.field-label');
@@ -1862,7 +1848,7 @@ function showSolvedBadge(field) {
 }
 
 // ── 8c: Forward (no-solve) calculation ──────────
-function runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr) {
+function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr) {
   const errs = [];
   if (isNaN(rate)   || rate   <= 0) errs.push('Interest Rate is required and must be > 0.');
   if (isNaN(debt)   || debt   <= 0) errs.push('Debt Amount is required and must be > 0.');
@@ -1871,7 +1857,8 @@ function runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, star
 
   const params = {
     balance: debt, annualRate: rate, minPctPerMonth: minPct,
-    baseContrib: addlContrib, contribRules, lsRules, startDateStr
+    housingTarget: targetHousingPmt, fixedObligation,
+    contribRules: [], lsRules, startDateStr
   };
   const schedule = runAmortization(params);
 
@@ -1892,13 +1879,13 @@ function runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, star
 }
 
 // ── 8d: Bidirectional solver ─────────────────────
-function runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr) {
+function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr) {
   const freeVar = getFirstFreeVar();
 
   if (!freeVar) {
     showError(
       'All input fields are locked — unlock at least one of: ' +
-      '<strong>Additional Contribution</strong>, <strong>Min. Payment %</strong>, ' +
+      '<strong>Target Housing Payment</strong>, <strong>Min. Payment %</strong>, ' +
       '<strong>Interest Rate</strong>, or <strong>Debt Amount</strong> ' +
       'so the solver has a variable to adjust.'
     );
@@ -1917,8 +1904,9 @@ function runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, 
     annualRate:     rate,
     balance:        debt,
     minPctPerMonth: minPct,
-    baseContrib:    addlContrib,
-    contribRules, lsRules, startDateStr
+    housingTarget:  targetHousingPmt,
+    fixedObligation,
+    contribRules: [], lsRules, startDateStr
   };
 
   // Objective function: fn(x) → the metric we are targeting
@@ -1930,10 +1918,10 @@ function runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, 
 
   // Solver bounds and tolerance by free variable
   const bounds = {
-    addlContrib: { lo: 0,      hi: (debt || 1e5) * 20, tol: 0.5  },
-    minPmt:      { lo: 0.0001, hi: 99.99,               tol: 0.0001 },
-    rate:        { lo: 0.001,  hi: 99.99,               tol: 0.001  },
-    debt:        { lo: 1,      hi: 1e8,                  tol: 1.0   },
+    targetHousingPmt: { lo: 0, hi: (debt || 1e5) * 20, tol: 0.5 },
+    minPmt:           { lo: 0.0001, hi: 99.99,          tol: 0.0001 },
+    rate:             { lo: 0.001,  hi: 99.99,           tol: 0.001  },
+    debt:             { lo: 1,      hi: 1e8,              tol: 1.0   },
   };
   const { lo, hi, tol } = bounds[freeVar];
 
@@ -2002,7 +1990,37 @@ function runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, 
   renderResults(schedule, finalParams);
 }
 
-// ── 8e: Shared render helper ─────────────────────
+// ── 8e: Real-time housing subtotal (pre-calculate) ──
+function updateHousingSubtotal() {
+  const target  = parseFloat(document.getElementById('targetHousingPmt').value) || 0;
+  const fixed   = parseFloat(document.getElementById('fixedObligations').value) || 0;
+  const balance = parseFloat(document.getElementById('debtAmount').value) || 0;
+  const minPct  = parseFloat(document.getElementById('minPaymentPct').value) || 1;
+
+  const helocMin = balance > 0 ? round2(balance * minPct / 100) : null;
+  const addl     = (target > 0 && helocMin !== null) ? Math.max(0, round2(target - fixed - helocMin)) : null;
+
+  setText('hs-fixed', fmt(fixed));
+  setText('hs-min',   helocMin !== null ? fmt(helocMin) : '—');
+  setText('hs-addl',  addl     !== null ? fmt(addl)     : '—');
+  setText('hs-total', target   > 0      ? fmt(target)   : '—');
+
+  // Lump sum display
+  const lsRules = readLumpSumRules();
+  const lumpsEl = document.getElementById('hs-lumps');
+  if (lsRules.length > 0) {
+    const lines = lsRules.map(r => {
+      const cadenceLabel = { once: 'once', annually: 'annually', biannually: 'every 6 mo', quarterly: 'quarterly', custom: `every ${r.interval || '?'} mo` };
+      return `Lump sum: ${fmt(r.amount)} starting month ${r.startMonth} (${cadenceLabel[r.cadence] || r.cadence})`;
+    });
+    lumpsEl.innerHTML = lines.join('<br>');
+    lumpsEl.style.display = '';
+  } else {
+    lumpsEl.style.display = 'none';
+  }
+}
+
+// ── 8f: Insights panel ───────────────────────────
 function generateInsights(schedule, params, baseline) {
   const el = document.getElementById('insightsList');
   if (!el) return;
@@ -2126,15 +2144,23 @@ function generateInsights(schedule, params, baseline) {
     }
   }
 
-  // 7 — Average effective monthly housing cost
-  if (fixedObl > 0 || schedule.some(r => r.minPmt > 0)) {
+  // 7 — Monthly housing cost
+  const housingTarget = params.housingTarget || 0;
+  if (housingTarget > 0) {
+    items.push({
+      type: 'info',
+      icon: '🏠',
+      headline: `Monthly housing cost is constant at ${fmt(housingTarget)}`,
+      detail: `${fmt(fixedObl)} fixed + HELOC payment totalling ${fmt(housingTarget)} every month — HELOC min. shrinks as balance declines, additional principal grows to compensate`
+    });
+  } else if (fixedObl > 0 || schedule.some(r => r.minPmt > 0)) {
     const totalHousing = schedule.reduce((s, r) => s + fixedObl + r.minPmt + r.addlContrib, 0);
     const avgHousing   = round2(totalHousing / payoffMonths);
     items.push({
       type: 'info',
       icon: '🏠',
       headline: `Average effective monthly housing cost: ${fmt(avgHousing)}`,
-      detail: `Includes fixed obligations (${fmt(fixedObl)}/mo) + average HELOC payment across all ${payoffMonths} months`
+      detail: `Fixed obligations (${fmt(fixedObl)}/mo) + average HELOC payment across all ${payoffMonths} months`
     });
   }
 
@@ -2149,7 +2175,7 @@ function generateInsights(schedule, params, baseline) {
 }
 
 function renderResults(schedule, params) {
-  lastFixedObligations = parseFloat(document.getElementById('fixedObligations').value) || 0;
+  lastFixedObligations = params.fixedObligation || 0;
   lastSchedule = schedule;
   restoreMonthlyHeaders();
   renderTable(schedule);
@@ -2166,12 +2192,12 @@ function calculate() {
   const startDateStr = document.getElementById('startDate').value;
   if (!startDateStr) { showError('Start Date is required.'); return; }
 
-  const rate        = parseFloat(document.getElementById('interestRate').value);
-  const debt        = parseFloat(document.getElementById('debtAmount').value);
-  const minPct      = parseFloat(document.getElementById('minPaymentPct').value);
-  const addlContrib = parseFloat(document.getElementById('addlContrib').value) || 0;
-  const contribRules = readContribRules();
-  const lsRules      = readLumpSumRules();
+  const rate             = parseFloat(document.getElementById('interestRate').value);
+  const debt             = parseFloat(document.getElementById('debtAmount').value);
+  const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
+  const targetHousingPmt = parseFloat(document.getElementById('targetHousingPmt').value) || 0;
+  const fixedObligation  = parseFloat(document.getElementById('fixedObligations').value) || 0;
+  const lsRules          = readLumpSumRules();
 
   // Determine which output fields are locked → become solve targets
   const targets = [];
@@ -2216,11 +2242,10 @@ function calculate() {
   }
 
   if (targets.length === 0) {
-    // Pure forward calculation
-    runForward(rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr);
+    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr);
   } else {
     const { type, target } = targets[0];
-    runSolver(type, target, rate, debt, minPct, addlContrib, contribRules, lsRules, startDateStr);
+    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr);
   }
 }
 
@@ -2305,11 +2330,12 @@ function captureCurrentSummary() {
 
 function captureCurrentParams() {
   return {
-    rate:        document.getElementById('interestRate').value,
-    debt:        document.getElementById('debtAmount').value,
-    minPct:      document.getElementById('minPaymentPct').value,
-    addlContrib: document.getElementById('addlContrib').value,
-    startDate:   document.getElementById('startDate').value,
+    rate:             document.getElementById('interestRate').value,
+    debt:             document.getElementById('debtAmount').value,
+    minPct:           document.getElementById('minPaymentPct').value,
+    targetHousingPmt: document.getElementById('targetHousingPmt').value,
+    fixedObligation:  document.getElementById('fixedObligations').value,
+    startDate:        document.getElementById('startDate').value,
   };
 }
 
@@ -2376,7 +2402,7 @@ function renderScenarioTabs() {
     const tab = document.createElement('div');
     tab.className = 'scenario-tab';
     tab.textContent = sc.name;
-    tab.title = `Rate: ${sc.params.rate}%  Debt: $${sc.params.debt}  Min: ${sc.params.minPct}%  +$${sc.params.addlContrib}/mo`;
+    tab.title = `Rate: ${sc.params.rate}%  Debt: $${sc.params.debt}  Min: ${sc.params.minPct}%  Target: $${sc.params.targetHousingPmt}/mo`;
 
     const del = document.createElement('button');
     del.className = 'scenario-tab-del';
@@ -2414,10 +2440,11 @@ function renderScenarioCompare() {
 
   // Param rows
   const PARAMS = [
-    { key: 'rate',        label: 'Interest Rate',    suffix: '%' },
-    { key: 'debt',        label: 'Debt Amount',      prefix: '$' },
-    { key: 'minPct',      label: 'Min. Payment %',   suffix: '%' },
-    { key: 'addlContrib', label: 'Addl. Contrib/mo', prefix: '$' },
+    { key: 'rate',             label: 'Interest Rate',         suffix: '%' },
+    { key: 'debt',             label: 'Debt Amount',           prefix: '$' },
+    { key: 'minPct',           label: 'Min. Payment %',        suffix: '%' },
+    { key: 'targetHousingPmt', label: 'Target Housing/mo',     prefix: '$' },
+    { key: 'fixedObligation',  label: 'Fixed Obligation/mo',   prefix: '$' },
   ];
 
   let html = `<div style="overflow-x:auto"><table class="sc-table">
@@ -2562,11 +2589,12 @@ function exportScenarioCSV() {
     { key: 'timeSaved',      label: 'Time Saved vs Min-Only' },
   ];
   const PARAMS = [
-    { key: 'rate',        label: 'Interest Rate (%)' },
-    { key: 'debt',        label: 'Debt Amount ($)' },
-    { key: 'minPct',      label: 'Min Payment (%)' },
-    { key: 'addlContrib', label: 'Addl Contrib/mo ($)' },
-    { key: 'startDate',   label: 'Start Date' },
+    { key: 'rate',             label: 'Interest Rate (%)' },
+    { key: 'debt',             label: 'Debt Amount ($)' },
+    { key: 'minPct',           label: 'Min Payment (%)' },
+    { key: 'targetHousingPmt', label: 'Target Housing/mo ($)' },
+    { key: 'fixedObligation',  label: 'Fixed Obligation/mo ($)' },
+    { key: 'startDate',        label: 'Start Date' },
   ];
 
   const names = scenarios.map(sc => sc.name);
