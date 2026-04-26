@@ -1112,7 +1112,9 @@
                 <th>Start Balance</th>
                 <th>Min. Payment</th>
                 <th>Addl. Contrib.</th>
-                <th>Lump Sum</th>
+                <th>Sched. Lump Sum</th>
+                <th>Solver Lump Sum</th>
+                <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid #7dd3fc">Housing Total</th>
                 <th>Total Payment</th>
                 <th>Principal</th>
                 <th>Interest</th>
@@ -1122,7 +1124,7 @@
             </thead>
             <tbody id="amortBody">
               <tr>
-                <td colspan="12" class="table-placeholder">
+                <td colspan="13" class="table-placeholder">
                   Press <strong>Calculate</strong> to generate the amortization schedule.
                 </td>
               </tr>
@@ -1390,13 +1392,14 @@ function monthNumToFullDate(startDateStr, monthOffset) {
 
 /**
  * Returns array of monthly rows. Each row:
- * { monthNum, date, startBal, minPmt, addlContrib, lumpSum,
+ * { monthNum, date, startBal, minPmt, addlContrib,
+ *   scheduledLumpSum, solverLumpSum, lumpSum (total),
  *   totalPmt, principal, interest, endBal, cumulInterest,
- *   contribChanged, hasLumpSum }
+ *   contribChanged, hasScheduledLS, hasSolverLS, hasLumpSum }
  */
 function runAmortization(params) {
   const { balance, annualRate, minPctPerMonth, baseContrib,
-          contribRules, lsRules, startDateStr, maxMonths,
+          contribRules, lsRules, solverLsRules, startDateStr, maxMonths,
           housingTarget, fixedObligation } = params;
 
   const monthlyRate = annualRate / 100 / 12;
@@ -1420,7 +1423,9 @@ function runAmortization(params) {
     const addl = housingTarget > 0
       ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
       : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
-    const lumpSum = round2(getLumpSumForMonth(lsRules, n));
+    const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n));
+    const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n));
+    const lumpSum     = round2(scheduledLS + solverLS);
 
     // Total payment capped so we never overpay
     let totalPmt = minPmt + addl + lumpSum;
@@ -1440,14 +1445,18 @@ function runAmortization(params) {
       startBal,
       minPmt,
       addlContrib: addl,
-      lumpSum,
+      scheduledLumpSum: scheduledLS,
+      solverLumpSum:    solverLS,
+      lumpSum,                        // total: scheduledLS + solverLS
       totalPmt,
       principal,
       interest,
       endBal,
       cumulInterest,
       contribChanged,
-      hasLumpSum: lumpSum > 0,
+      hasScheduledLS: scheduledLS > 0,
+      hasSolverLS:    solverLS    > 0,
+      hasLumpSum:     lumpSum     > 0,
       period: inRepayment ? 'repayment' : 'draw',
     });
 
@@ -1469,7 +1478,8 @@ function buildAnnualSummary(schedule) {
         year: yr, months: 0,
         startBal: row.startBal,
         endBal: row.endBal,
-        totalMinPmt: 0, totalAddl: 0, totalLumpSum: 0,
+        totalMinPmt: 0, totalAddl: 0,
+        totalScheduledLS: 0, totalSolverLS: 0, totalLumpSum: 0,
         totalPmt: 0, totalPrincipal: 0, totalInterest: 0,
         cumulInterest: 0
       };
@@ -1477,9 +1487,11 @@ function buildAnnualSummary(schedule) {
     const y = years[yr];
     y.months++;
     y.endBal         = row.endBal;
-    y.totalMinPmt   += row.minPmt;
-    y.totalAddl     += row.addlContrib;
-    y.totalLumpSum  += row.lumpSum;
+    y.totalMinPmt    += row.minPmt;
+    y.totalAddl      += row.addlContrib;
+    y.totalScheduledLS += row.scheduledLumpSum;
+    y.totalSolverLS    += row.solverLumpSum;
+    y.totalLumpSum     += row.lumpSum;
     y.totalPmt      += row.totalPmt;
     y.totalPrincipal+= row.principal;
     y.totalInterest += row.interest;
@@ -1496,7 +1508,7 @@ function runMinOnlyBaseline(balance, annualRate, minPct) {
   // Uses same draw/repayment structure. Naturally caps at MAX_LOAN_MONTHS (480).
   const params = {
     balance, annualRate, minPctPerMonth: minPct,
-    baseContrib: 0, contribRules: [], lsRules: [],
+    baseContrib: 0, contribRules: [], lsRules: [], solverLsRules: [],
     startDateStr: document.getElementById('startDate').value,
   };
   return runAmortization(params);
@@ -1523,7 +1535,7 @@ function renderTable(schedule) {
   tbody.innerHTML = '';
 
   if (!schedule || schedule.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" class="table-placeholder">No data.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="table-placeholder">No data.</td></tr>';
     return;
   }
 
@@ -1544,7 +1556,7 @@ function renderMonthlyTable(schedule, tbody) {
       separatorInserted = true;
       const sep = document.createElement('tr');
       sep.className = 'period-separator';
-      sep.innerHTML = `<td colspan="12">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
+      sep.innerHTML = `<td colspan="13">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
       frag.appendChild(sep);
     }
 
@@ -1552,8 +1564,8 @@ function renderMonthlyTable(schedule, tbody) {
     // Period background
     tr.classList.add(r.period === 'repayment' ? 'row-repayment-period' : 'row-draw-period');
     // Row highlights
-    if (r.contribChanged) tr.classList.add('row-contrib-change');
-    if (r.hasLumpSum)     tr.classList.add('row-lump-sum');
+    if (r.contribChanged)  tr.classList.add('row-contrib-change');
+    if (r.hasLumpSum)      tr.classList.add('row-lump-sum');
     if (r.endBal <= 0.005) tr.classList.add('row-payoff');
 
     let monthLabel = `Month ${r.monthNum}`;
@@ -1561,8 +1573,9 @@ function renderMonthlyTable(schedule, tbody) {
     badges.push(r.period === 'draw'
       ? '<span class="badge" style="background:#0369a1;margin-left:4px;opacity:.75">Draw</span>'
       : '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.75">Repay</span>');
-    if (r.contribChanged) badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
-    if (r.hasLumpSum)     badges.push('<span class="badge" style="background:var(--blue-lt);margin-left:4px">Lump Sum</span>');
+    if (r.contribChanged)  badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
+    if (r.hasScheduledLS)  badges.push('<span class="badge" style="background:#7c3aed;margin-left:4px">Sched. LS</span>');
+    if (r.hasSolverLS)     badges.push('<span class="badge" style="background:var(--blue-lt);margin-left:4px">Solver LS</span>');
     if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
 
     const housingPmt = round2(lastFixedObligations + r.minPmt + r.addlContrib);
@@ -1572,7 +1585,8 @@ function renderMonthlyTable(schedule, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.minPmt)}</td>
       <td>${r.addlContrib > 0 ? fmt(r.addlContrib) : '—'}</td>
-      <td>${r.lumpSum > 0 ? fmt(r.lumpSum) : '—'}</td>
+      <td style="color:#6d28d9">${r.scheduledLumpSum > 0 ? fmt(r.scheduledLumpSum) : '—'}</td>
+      <td style="color:#0369a1">${r.solverLumpSum    > 0 ? fmt(r.solverLumpSum)    : '—'}</td>
       <td style="border-left:2px solid #bae6fd;font-weight:700;color:#0c4a6e">${fmt(housingPmt)}</td>
       <td><strong>${fmt(r.totalPmt)}</strong></td>
       <td>${fmt(r.principal)}</td>
@@ -1594,7 +1608,8 @@ function renderAnnualTable(annualRows, tbody) {
     <th>Start Balance</th>
     <th>Total Min. Pmts</th>
     <th>Total Addl.</th>
-    <th>Total Lump Sums</th>
+    <th title="Scheduled (user-defined) lump sums">Sched. Lump Sums</th>
+    <th title="Solver-derived bi-annual lump sums">Solver Lump Sums</th>
     <th title="Fixed Obligations + Min. HELOC Payments + Additional Contributions" style="border-left:2px solid #7dd3fc">Housing Total</th>
     <th>Total Paid</th>
     <th>Total Principal</th>
@@ -1611,7 +1626,7 @@ function renderAnnualTable(annualRows, tbody) {
       annualSepInserted = true;
       const sep = document.createElement('tr');
       sep.className = 'period-separator';
-      sep.innerHTML = `<td colspan="12">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
+      sep.innerHTML = `<td colspan="13">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
       frag.appendChild(sep);
     }
     const tr = document.createElement('tr');
@@ -1623,7 +1638,8 @@ function renderAnnualTable(annualRows, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.totalMinPmt)}</td>
       <td>${r.totalAddl > 0 ? fmt(r.totalAddl) : '—'}</td>
-      <td>${r.totalLumpSum > 0 ? fmt(r.totalLumpSum) : '—'}</td>
+      <td style="color:#6d28d9">${r.totalScheduledLS > 0 ? fmt(r.totalScheduledLS) : '—'}</td>
+      <td style="color:#0369a1">${r.totalSolverLS    > 0 ? fmt(r.totalSolverLS)    : '—'}</td>
       <td style="border-left:2px solid #bae6fd;font-weight:700;color:#0c4a6e">${fmt(annualHousing)}</td>
       <td><strong>${fmt(r.totalPmt)}</strong></td>
       <td>${fmt(r.totalPrincipal)}</td>
@@ -1645,7 +1661,8 @@ function restoreMonthlyHeaders() {
     <th>Start Balance</th>
     <th>Min. Payment</th>
     <th>Addl. Contrib.</th>
-    <th>Lump Sum</th>
+    <th title="Fixed one-time or recurring payments entered manually">Sched. Lump Sum</th>
+    <th title="Minimum bi-annual amount found by solver">Solver Lump Sum</th>
     <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid #7dd3fc">Housing Total</th>
     <th>Total Payment</th>
     <th>Principal</th>
@@ -1919,7 +1936,7 @@ function showSolvedBadge(field) {
 }
 
 // ── 8c: Forward (no-solve) calculation ──────────
-function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr) {
+function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRules, startDateStr) {
   const errs = [];
   if (isNaN(rate)   || rate   <= 0) errs.push('Interest Rate is required and must be > 0.');
   if (isNaN(debt)   || debt   <= 0) errs.push('Debt Amount is required and must be > 0.');
@@ -1929,7 +1946,7 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRul
   const params = {
     balance: debt, annualRate: rate, minPctPerMonth: minPct,
     housingTarget: targetHousingPmt, fixedObligation,
-    contribRules: [], lsRules, startDateStr
+    contribRules: [], lsRules, solverLsRules, startDateStr
   };
   const schedule = runAmortization(params);
 
@@ -1950,7 +1967,7 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRul
 }
 
 // ── 8d: Bidirectional solver ─────────────────────
-function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr, solverLsConfig) {
+function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRules, startDateStr, solverLsConfig) {
   const freeVar = getFirstFreeVar();
 
   if (!freeVar) {
@@ -1971,13 +1988,14 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   if (errs.length) { showError(errs.join('<br>')); return; }
 
   const paramField = PARAM_KEY[freeVar];
+  // baseParams always carries scheduled lsRules as fixed; solverLsRules varies per objFn call
   const baseParams = {
     annualRate:     rate,
     balance:        debt,
     minPctPerMonth: minPct,
     housingTarget:  targetHousingPmt,
     fixedObligation,
-    contribRules: [], lsRules, startDateStr
+    contribRules: [], lsRules, solverLsRules, startDateStr
   };
 
   // Solver bounds and tolerance by free variable
@@ -1992,25 +2010,26 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   // Objective function: fn(x) → the metric we are targeting
   let objFn;
   if (freeVar === 'lumpSum') {
-    // Special case: build lsRules dynamically so the solver finds minimum per-occurrence amount
-    const { cadence = 'biannually', startMonth = 1, userRules = [] } = solverLsConfig || {};
+    // Scheduled lsRules are fixed constraints. Solver varies solverLsRules only.
+    const { cadence = 'biannually', startMonth = 1 } = solverLsConfig || {};
     objFn = x => {
       const solverRule = x > 0 ? [{ amount: x, cadence, startMonth, interval: 6 }] : [];
-      const s = runAmortization({ ...baseParams, lsRules: [...userRules, ...solverRule] });
+      // lsRules (scheduled) stays fixed; only solverLsRules changes
+      const s = runAmortization({ ...baseParams, solverLsRules: solverRule });
       if (type === 'months')   return s.length;
       if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
     };
 
-    // Pre-check: does $0 lump sum already satisfy the constraint?
+    // Pre-check: do scheduled lump sums alone already satisfy the constraint?
     const atZero = objFn(0);
-    const alreadyOk = type === 'months' ? atZero <= target : atZero <= target;
+    const alreadyOk = atZero <= target;
     if (alreadyOk) {
       applySolvedValue('lumpSum', 0);
       showSolvedBadge('lumpSum');
-      const noLsParams = { ...baseParams, lsRules: [...userRules] };
-      const schedule = runAmortization(noLsParams);
+      // Run with scheduled rules only, solver lump sum = 0
+      const schedule = runAmortization({ ...baseParams, solverLsRules: [] });
       if (!schedule.length) { showError('Solver produced no schedule. Check inputs.'); return; }
-      renderResults(schedule, { ...noLsParams, solverLsAmount: 0, solverLsConfig });
+      renderResults(schedule, { ...baseParams, solverLsRules: [], solverLsAmount: 0, solverLsConfig });
       return;
     }
   } else {
@@ -2080,11 +2099,13 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   // Final forward pass with solved value
   let finalParams;
   if (freeVar === 'lumpSum') {
-    const { cadence = 'biannually', startMonth = 1, userRules = [] } = solverLsConfig || {};
+    const { cadence = 'biannually', startMonth = 1 } = solverLsConfig || {};
     const solvedAmt  = result.value;
-    const solverRule = solvedAmt > 0 ? [{ amount: solvedAmt, cadence, startMonth, interval: 6 }] : [];
-    const finalRules = [...userRules, ...solverRule];
-    finalParams = { ...baseParams, lsRules: finalRules, solverLsAmount: solvedAmt, solverLsConfig };
+    // lsRules (scheduled) remains unchanged; solver rule goes into solverLsRules
+    const finalSolverRules = solvedAmt > 0
+      ? [{ amount: solvedAmt, cadence, startMonth, interval: 6 }]
+      : [];
+    finalParams = { ...baseParams, solverLsRules: finalSolverRules, solverLsAmount: solvedAmt, solverLsConfig };
   } else {
     finalParams = { ...baseParams, [paramField]: result.value };
   }
@@ -2171,8 +2192,10 @@ function generateInsights(schedule, params, baseline, noLsBaseline) {
     : (baseline.length ? baseline[baseline.length - 1].cumulInterest : totalInterest);
   const interestSaved = round2(baselineInterest - totalInterest);
   const monthsSaved   = baselinePaidOff ? (baseline.length - payoffMonths) : null;
-  const hasAddl = schedule.some(r => r.addlContrib > 0);
-  const hasLumps = schedule.some(r => r.lumpSum > 0);
+  const hasAddl         = schedule.some(r => r.addlContrib > 0);
+  const hasLumps        = schedule.some(r => r.lumpSum > 0);
+  const hasScheduledLs  = schedule.some(r => r.scheduledLumpSum > 0);
+  const hasSolverLs     = schedule.some(r => r.solverLumpSum    > 0);
   if (hasAddl) {
     const savedStr = interestSaved > 0 ? `, saving ${fmtK(interestSaved)} in interest` : '';
     const timeStr  = monthsSaved !== null && monthsSaved > 0
@@ -2186,42 +2209,68 @@ function generateInsights(schedule, params, baseline, noLsBaseline) {
     });
   }
 
-  // 3 — Lump sum metrics (4 data points when lump sums are present)
+  // 3 — Lump sum metrics: scheduled and solver shown separately
   if (hasLumps) {
-    const totalLumps = schedule.reduce((s, r) => s + (r.lumpSum || 0), 0);
-    const lumpCount  = schedule.filter(r => r.lumpSum > 0).length;
-
-    // Interest saved specifically by lump sums vs. a no-lump-sum run
     const noLsLast     = noLsBaseline && noLsBaseline.length ? noLsBaseline[noLsBaseline.length - 1] : null;
     const noLsInterest = noLsLast ? noLsLast.cumulInterest : totalInterest;
-    const lsSaved      = round2(noLsInterest - totalInterest);
+    const totalLsSaved = round2(noLsInterest - totalInterest);
 
-    // Solved lump sum amount (if the solver found it)
-    const solverAmt = params.solverLsAmount;
-    const hasSolvedLs = solverAmt !== undefined && solverAmt !== null;
-    const cfg = params.solverLsConfig || {};
+    // Scheduled lump sums insight
+    if (hasScheduledLs) {
+      const schedTotal = schedule.reduce((s, r) => s + (r.scheduledLumpSum || 0), 0);
+      const schedCount = schedule.filter(r => r.scheduledLumpSum > 0).length;
+      items.push({
+        type: 'success',
+        icon: '📅',
+        headline: `Scheduled lump sums: ${schedCount} payment(s) · ${fmtK(schedTotal)} total`,
+        detail: hasScheduledLs && !hasSolverLs && totalLsSaved > 0
+          ? `${fmtK(totalLsSaved)} interest saved vs. no lump sums`
+          : 'Applied as fixed inputs — not affected by the solver'
+      });
+    }
+
+    // Solver lump sum insight (4 data points)
+    const solverAmt    = params.solverLsAmount;
+    const hasSolvedLs  = solverAmt !== undefined && solverAmt !== null;
+    const cfg          = params.solverLsConfig || {};
     const cadenceLabel = { biannually: 'every 6 months', annually: 'annually', quarterly: 'quarterly', once: 'one-time' };
-    const cadenceStr = cadenceLabel[cfg.cadence] || cfg.cadence || 'bi-annually';
+    const cadenceStr   = cadenceLabel[cfg.cadence] || cfg.cadence || 'bi-annually';
 
     if (hasSolvedLs) {
+      const solverTotal = schedule.reduce((s, r) => s + (r.solverLumpSum || 0), 0);
+      const solverCount = schedule.filter(r => r.solverLumpSum > 0).length;
+      // Interest saved by solver lump sums specifically (compare to scheduled-only run)
+      const noSolverBaseline = hasScheduledLs
+        ? runAmortization({ ...params, solverLsRules: [] })
+        : noLsBaseline;
+      const noSolverInterest = noSolverBaseline.length
+        ? noSolverBaseline[noSolverBaseline.length - 1].cumulInterest
+        : totalInterest;
+      const solverLsSaved = round2(noSolverInterest - totalInterest);
+
       items.push({
         type: solverAmt > 0 ? 'success' : 'info',
         icon: '🏦',
         headline: solverAmt > 0
-          ? `Minimum lump sum needed: ${fmt(solverAmt)} ${cadenceStr}`
-          : 'No lump sum required to meet your target',
+          ? `Minimum solver lump sum: ${fmt(solverAmt)} ${cadenceStr}`
+          : 'No additional solver lump sum required to meet target',
         detail: solverAmt > 0
-          ? `${lumpCount} payment(s) · ${fmtK(totalLumps)} total applied · ${lsSaved > 0 ? fmtK(lsSaved) + ' interest saved vs. no lump sums' : 'interest savings minimal'}`
-          : 'Your other parameters already satisfy the locked constraint without any lump sum'
+          ? `${solverCount} payment(s) · ${fmtK(solverTotal)} total · ${solverLsSaved > 0 ? fmtK(solverLsSaved) + ' interest saved vs. scheduled-only' : 'savings minimal'}`
+          : hasScheduledLs
+            ? 'Scheduled lump sums already satisfy the locked constraint'
+            : 'Other parameters already satisfy the locked constraint'
       });
-    } else {
+    } else if (hasSolverLs) {
+      // Solver lump sum applied (locked/fixed, not dynamically solved)
+      const solverTotal = schedule.reduce((s, r) => s + (r.solverLumpSum || 0), 0);
+      const solverCount = schedule.filter(r => r.solverLumpSum > 0).length;
       items.push({
         type: 'success',
         icon: '🏦',
-        headline: `Lump sums: ${lumpCount} payment(s) · ${fmtK(totalLumps)} total applied`,
-        detail: lsSaved > 0
-          ? `${fmtK(lsSaved)} interest saved vs. same scenario without lump sums`
-          : `Lump sums applied but interest savings are negligible at this payment level`
+        headline: `Solver lump sum (fixed): ${solverCount} payment(s) · ${fmtK(solverTotal)} total`,
+        detail: totalLsSaved > 0
+          ? `${fmtK(totalLsSaved)} combined interest saved vs. no lump sums`
+          : 'Applied as fixed bi-annual payments'
       });
     }
   }
@@ -2324,10 +2373,10 @@ function renderResults(schedule, params) {
   renderTable(schedule);
   renderCharts(schedule);
   const baseline = runMinOnlyBaseline(params.balance, params.annualRate, params.minPctPerMonth);
-  // Baseline without any lump sums (for computing interest saved by lump sums specifically)
+  // Baseline without any lump sums (for computing interest saved by lump sums)
   const hasAnyLumps = schedule.some(r => r.lumpSum > 0);
   const noLsBaseline = hasAnyLumps
-    ? runAmortization({ ...params, lsRules: [] })
+    ? runAmortization({ ...params, lsRules: [], solverLsRules: [] })
     : schedule;
   updateSummary(schedule, params, baseline);
   generateInsights(schedule, params, baseline, noLsBaseline);
@@ -2351,16 +2400,14 @@ function calculate() {
   const solverLsAmount   = parseFloat(document.getElementById('lumpSumAmount').value) || 0;
   const solverLsCadence  = document.getElementById('solverLsCadence').value;
   const solverLsStart    = parseInt(document.getElementById('solverLsStart').value, 10) || 1;
-  const solverLsConfig   = { cadence: solverLsCadence, startMonth: solverLsStart, userRules: userLsRules };
+  const solverLsConfig   = { cadence: solverLsCadence, startMonth: solverLsStart };
 
-  // When lumpSum is locked (fixed amount), merge it as a rule; otherwise solver decides
-  let lsRules;
-  if (lockState['lumpSum'] && solverLsAmount > 0) {
-    const fixedRule = { amount: solverLsAmount, cadence: solverLsCadence, startMonth: solverLsStart, interval: 6 };
-    lsRules = [...userLsRules, fixedRule];
-  } else {
-    lsRules = userLsRules;
-  }
+  // Scheduled lump sums (user-defined rules) are always fixed inputs.
+  // The solver lump sum is tracked separately — either locked (fixed amount) or free.
+  const lsRules = userLsRules;   // scheduled rules: never mixed into solverLsRules
+  const solverLsRulesFixed = (lockState['lumpSum'] && solverLsAmount > 0)
+    ? [{ amount: solverLsAmount, cadence: solverLsCadence, startMonth: solverLsStart, interval: 6 }]
+    : [];
 
   // Determine which output fields are locked → become solve targets
   const targets = [];
@@ -2405,10 +2452,10 @@ function calculate() {
   }
 
   if (targets.length === 0) {
-    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr);
+    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRulesFixed, startDateStr);
   } else {
     const { type, target } = targets[0];
-    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, startDateStr, solverLsConfig);
+    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRulesFixed, startDateStr, solverLsConfig);
   }
 }
 
@@ -2707,7 +2754,8 @@ function exportAmortCSV() {
   }
 
   const header = [
-    'Month','Date','Start Balance','Min Payment','Addl Contrib','Lump Sum',
+    'Month','Date','Start Balance','Min Payment','Addl Contrib',
+    'Sched Lump Sum','Solver Lump Sum',
     'Housing Total (Fixed+Min+Addl)','Total Payment','Principal','Interest','End Balance','Cumul Interest'
   ];
 
@@ -2719,7 +2767,8 @@ function exportAmortCSV() {
       r.startBal.toFixed(2),
       r.minPmt.toFixed(2),
       r.addlContrib.toFixed(2),
-      r.lumpSum.toFixed(2),
+      (r.scheduledLumpSum || 0).toFixed(2),
+      (r.solverLumpSum    || 0).toFixed(2),
       housing.toFixed(2),
       r.totalPmt.toFixed(2),
       r.principal.toFixed(2),
@@ -2731,13 +2780,16 @@ function exportAmortCSV() {
 
   // Append annual summary as a second block
   rows.push([], ['--- ANNUAL SUMMARY ---']);
-  rows.push(['Year','Months','Start Balance','Total Min Pmts','Total Addl','Total Lump Sums',
+  rows.push(['Year','Months','Start Balance','Total Min Pmts','Total Addl',
+             'Total Sched Lump Sums','Total Solver Lump Sums',
              'Total Paid','Total Principal','Total Interest','End Balance','Cumul Interest']);
   for (const yr of buildAnnualSummary(lastSchedule)) {
     rows.push([
       `Year ${yr.year}`, yr.months,
       yr.startBal.toFixed(2), yr.totalMinPmt.toFixed(2),
-      yr.totalAddl.toFixed(2), yr.totalLumpSum.toFixed(2),
+      yr.totalAddl.toFixed(2),
+      (yr.totalScheduledLS || 0).toFixed(2),
+      (yr.totalSolverLS    || 0).toFixed(2),
       yr.totalPmt.toFixed(2), yr.totalPrincipal.toFixed(2),
       yr.totalInterest.toFixed(2), yr.endBal.toFixed(2),
       yr.cumulInterest.toFixed(2),
