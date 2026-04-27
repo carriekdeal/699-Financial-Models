@@ -1467,6 +1467,7 @@ function confirmLsRule() {
     cadence,
     startMonth,
     label: `${monthName} ${year} (mo. ${startMonth})`,
+    mode: 'fixed',
   });
   renderLsActiveRules();
   cancelLsForm();
@@ -1477,23 +1478,49 @@ function removeLsRule(id) {
   renderLsActiveRules();
 }
 
+function toggleLsMode(id) {
+  const rule = lsRulesData.find(r => r.id === id);
+  if (!rule) return;
+  if (rule.mode === 'fixed') {
+    // Demote any existing solver rule back to fixed first
+    lsRulesData.forEach(r => { if (r.mode === 'solver') r.mode = 'fixed'; });
+    rule.mode = 'solver';
+  } else {
+    rule.mode = 'fixed';
+  }
+  renderLsActiveRules();
+}
+
 function renderLsActiveRules() {
   const container = document.getElementById('lsActiveRules');
   if (!container) return;
-  if (!lsRulesData.length) {
-    container.innerHTML = '';
-    return;
-  }
+  if (!lsRulesData.length) { container.innerHTML = ''; return; }
   const CADENCE_LABEL = { once: 'Once', annual: 'Annual', semiannual: 'Semi-annual', quarterly: 'Quarterly', monthly: 'Monthly' };
-  container.innerHTML = lsRulesData.map(r => `
-    <div class="rule-row" style="align-items:center;margin-bottom:4px">
-      <div style="flex:1;font-size:12px;color:var(--text-dim)">
-        <strong>${fmt(r.amount)}</strong>
-        <span style="color:var(--muted);margin:0 4px">·</span>${CADENCE_LABEL[r.cadence] || r.cadence}
-        <span style="color:var(--muted);margin:0 4px">·</span>starts ${r.label}
-      </div>
-      <button class="rule-remove" title="Remove" onclick="removeLsRule(${r.id})">✕</button>
-    </div>`).join('');
+  container.innerHTML = lsRulesData.map(r => {
+    const isSolver  = r.mode === 'solver';
+    const amtStr    = isSolver && !r.amount ? '<em style="color:var(--muted)">to be solved</em>' : `<strong>${fmt(r.amount)}</strong>`;
+    const borderClr = isSolver ? 'var(--accent)' : 'var(--border-lt)';
+    const bgClr     = isSolver ? 'var(--accent-glow)' : 'var(--surface-2)';
+    const badgeClr  = isSolver ? 'var(--accent)'      : 'var(--teal)';
+    const badgeTxt  = isSolver ? 'Solver'             : 'Fixed';
+    const toggleTxt = isSolver ? '→ Fixed'            : '→ Solver';
+    return `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:6px 8px;
+                  border-radius:6px;border:1px solid ${borderClr};background:${bgClr}">
+        <div style="flex:1;font-size:12px;color:var(--text-dim);line-height:1.5">
+          ${amtStr}
+          <span style="color:var(--muted);margin:0 3px">·</span>${CADENCE_LABEL[r.cadence] || r.cadence}
+          <span style="color:var(--muted);margin:0 3px">·</span>starts ${r.label}
+          <span class="badge" style="background:${badgeClr};margin-left:5px">${badgeTxt}</span>
+        </div>
+        <button title="Switch mode" onclick="toggleLsMode(${r.id})"
+                style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid ${badgeClr};
+                       color:${badgeClr};background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          ${toggleTxt}
+        </button>
+        <button class="rule-remove" title="Remove" onclick="removeLsRule(${r.id})">✕</button>
+      </div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════════════
@@ -1551,6 +1578,14 @@ function computeLsLookup(rules) {
     }
   }
   return lookup;
+}
+
+function mergeLsSchedules(a, b) {
+  const result = Object.assign({}, a);
+  for (const [k, v] of Object.entries(b)) {
+    result[k] = round2((result[k] || 0) + v);
+  }
+  return result;
 }
 
 function monthNumToDate(startDateStr, monthOffset) {
@@ -2076,14 +2111,21 @@ const SOLVE_LABEL = {
   minPmt:           'Minimum Monthly Payment %',
   rate:             'Annual Interest Rate',
   debt:             'Debt Amount',
+  lumpSum:          'Lump Sum Amount',
 };
 
 function getFirstFreeVar() {
+  if (lsRulesData.some(r => r.mode === 'solver')) return 'lumpSum';
   return SOLVE_PRIORITY.find(f => !lockState[f]) || null;
 }
 
 // Write solved value back to the appropriate input field
 function applySolvedValue(field, value) {
+  if (field === 'lumpSum') {
+    const rule = lsRulesData.find(r => r.mode === 'solver');
+    if (rule) { rule.amount = round2(value); renderLsActiveRules(); }
+    return;
+  }
   const ids = { targetHousingPmt: 'targetHousingPmt', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
   const el  = document.getElementById(ids[field]);
   if (!el) return;
@@ -2096,6 +2138,10 @@ function applySolvedValue(field, value) {
 
 function showSolvedBadge(field) {
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
+  if (field === 'lumpSum') {
+    // Badge is shown inline in the rule card via renderLsActiveRules
+    return;
+  }
   const ids = { targetHousingPmt: 'row-targetHousingPmt', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
   const row = document.getElementById(ids[field]);
   if (!row) return;
@@ -2140,14 +2186,15 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lumpS
 }
 
 // ── 8d: Bidirectional solver ─────────────────────
-function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr) {
+function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, fixedLsSchedule, solverLsRule, startDateStr) {
   const freeVar = getFirstFreeVar();
 
   if (!freeVar) {
     showError(
       'All input fields are locked — unlock at least one of: ' +
       '<strong>Target Housing Payment</strong>, <strong>Min. Payment %</strong>, ' +
-      '<strong>Interest Rate</strong>, or <strong>Debt Amount</strong> ' +
+      '<strong>Interest Rate</strong>, or <strong>Debt Amount</strong>, ' +
+      'or add a <strong>Solver-mode lump sum rule</strong> ' +
       'so the solver has a variable to adjust.'
     );
     return;
@@ -2158,16 +2205,19 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   if (freeVar !== 'rate'   && (isNaN(rate)   || rate   <= 0)) errs.push('Interest Rate is required and must be > 0.');
   if (freeVar !== 'debt'   && (isNaN(debt)   || debt   <= 0)) errs.push('Debt Amount is required and must be > 0.');
   if (freeVar !== 'minPmt' && (isNaN(minPct) || minPct <= 0)) errs.push('Minimum Monthly Payment % is required and must be > 0.');
+  if (freeVar === 'lumpSum' && !solverLsRule) errs.push('Internal error: no solver-mode lump sum rule found.');
   if (errs.length) { showError(errs.join('<br>')); return; }
 
-  const paramField = PARAM_KEY[freeVar];
+  // baseParams always carries the fixed lump sum schedule; solver varies on top of it
   const baseParams = {
     annualRate:     rate,
     balance:        debt,
     minPctPerMonth: minPct,
     housingTarget:  targetHousingPmt,
     fixedObligation,
-    contribRules: [], lumpSumSchedule, startDateStr
+    contribRules:   [],
+    lumpSumSchedule: fixedLsSchedule,
+    startDateStr,
   };
 
   // Solver bounds and tolerance by free variable
@@ -2176,13 +2226,26 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     minPmt:           { lo: 0.0001, hi: 99.99,               tol: 0.0001 },
     rate:             { lo: 0.001,  hi: 99.99,                tol: 0.001  },
     debt:             { lo: 1,      hi: 1e8,                  tol: 1.0    },
+    lumpSum:          { lo: 0,      hi: 1e7,                  tol: 1.0    },
   };
 
-  const objFn = x => {
-    const s = runAmortization({ ...baseParams, [paramField]: x });
-    if (type === 'months')   return s.length;
-    if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
-  };
+  let objFn;
+  if (freeVar === 'lumpSum') {
+    objFn = x => {
+      const solverSched = computeLsLookup([{ ...solverLsRule, amount: x }]);
+      const merged      = mergeLsSchedules(fixedLsSchedule, solverSched);
+      const s = runAmortization({ ...baseParams, lumpSumSchedule: merged });
+      if (type === 'months')   return s.length;
+      if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
+    };
+  } else {
+    const paramField = PARAM_KEY[freeVar];
+    objFn = x => {
+      const s = runAmortization({ ...baseParams, [paramField]: x });
+      if (type === 'months')   return s.length;
+      if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
+    };
+  }
 
   const { lo, hi, tol } = bounds[freeVar];
 
@@ -2241,9 +2304,15 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   showSolvedBadge(freeVar);
 
   // Final forward pass with solved value
-  const finalParams = { ...baseParams, [paramField]: result.value };
-  const schedule = runAmortization(finalParams);
+  let finalParams;
+  if (freeVar === 'lumpSum') {
+    const solverSched = computeLsLookup([{ ...solverLsRule, amount: result.value }]);
+    finalParams = { ...baseParams, lumpSumSchedule: mergeLsSchedules(fixedLsSchedule, solverSched) };
+  } else {
+    finalParams = { ...baseParams, [PARAM_KEY[freeVar]]: result.value };
+  }
 
+  const schedule = runAmortization(finalParams);
   if (!schedule.length) {
     showError('Solver converged but produced no schedule — please verify inputs.');
     return;
@@ -2447,7 +2516,13 @@ function calculate() {
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
   const targetHousingPmt = parseCurrency(document.getElementById('targetHousingPmt').value) || 0;
   const fixedObligation  = parseCurrency(document.getElementById('fixedObligations').value) || 0;
-  const lumpSumSchedule = computeLsLookup(lsRulesData);
+  const fixedLsRules    = lsRulesData.filter(r => r.mode === 'fixed');
+  const solverLsRule    = lsRulesData.find(r => r.mode === 'solver') || null;
+  const fixedLsSchedule = computeLsLookup(fixedLsRules);
+  // Forward run uses fixed rules + solver rule's current amount (if any)
+  const forwardLsSchedule = solverLsRule && solverLsRule.amount > 0
+    ? mergeLsSchedules(fixedLsSchedule, computeLsLookup([solverLsRule]))
+    : fixedLsSchedule;
 
   // Determine which output fields are locked → become solve targets
   const targets = [];
@@ -2492,10 +2567,10 @@ function calculate() {
   }
 
   if (targets.length === 0) {
-    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr);
+    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, forwardLsSchedule, startDateStr);
   } else {
     const { type, target } = targets[0];
-    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr);
+    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, fixedLsSchedule, solverLsRule, startDateStr);
   }
 }
 
