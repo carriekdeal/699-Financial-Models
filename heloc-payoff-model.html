@@ -1063,53 +1063,10 @@
       </div>
     </div><!-- /Monthly Housing Budget -->
 
-    <!-- ── Lump Sum Contributions ── -->
+    <!-- ── Scheduled Lump Sums ── -->
     <div class="card">
-      <div class="card-header"><span class="icon">💰</span> Lump Sum Contributions</div>
+      <div class="card-header"><span class="icon">💰</span> Scheduled Lump Sums</div>
       <div class="card-body">
-
-        <!-- Solver lump sum (lockable) -->
-        <div class="field-row" id="row-lumpSum">
-          <div class="field-inner">
-            <span class="field-label">Solver Lump Sum Amount</span>
-            <div class="field-input-wrap">
-              <span class="field-prefix">$</span>
-              <input type="text" inputmode="decimal" class="field-input has-prefix" id="lumpSumAmount"
-                     placeholder="0.00"
-                     oninput="formatCurrencyInput(this); updateHousingSubtotal()">
-            </div>
-          </div>
-          <button class="lock-btn" id="lock-lumpSum" title="Unlocked — solver will find the minimum amount"
-                  onclick="toggleLock('lumpSum')">🔓</button>
-        </div>
-
-        <div class="field-row" id="row-solverLsConfig" style="margin-top:4px;">
-          <div class="field-label">Cadence &amp; Start Month</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select id="solverLsCadence" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;">
-              <option value="biannually" selected>Every 6 months</option>
-              <option value="annually">Annually</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="once">One-time</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:5px;" class="ls-month-row">
-            <select id="solverLsStartMonthName" style="flex:2">
-              <option>January</option><option>February</option><option>March</option>
-              <option>April</option><option>May</option><option>June</option>
-              <option>July</option><option>August</option><option>September</option>
-              <option>October</option><option>November</option><option>December</option>
-            </select>
-            <input type="number" id="solverLsStartYear" min="2020" max="2080" placeholder="Year" style="flex:1;min-width:58px">
-          </div>
-        </div>
-
-        <p class="section-note" style="margin-top:6px;">
-          When <strong>unlocked</strong>, the solver finds the minimum per-occurrence amount needed to satisfy locked constraints. Lock it to fix the amount.
-        </p>
-
-        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px;">
-        <p class="section-note" style="margin-bottom:6px;">Scheduled Lump Sums</p>
 
         <!-- Active rules — always visible -->
         <div class="ls-active-list" id="lsActiveList">
@@ -1184,7 +1141,54 @@
         <!-- Add button -->
         <button class="ls-add-btn" id="lsAddBtn" onclick="showLsForm()">＋ Add Lump Sum</button>
       </div>
-    </div><!-- /Lump Sum Contributions -->
+    </div><!-- /Scheduled Lump Sums -->
+
+    <!-- ── Solver Lump Sum ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">⚡</span> Solver Lump Sum</div>
+      <div class="card-body">
+
+        <div class="field-row" id="row-lumpSum">
+          <div class="field-inner">
+            <span class="field-label">Amount per Occurrence</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="lumpSumAmount"
+                     placeholder="0.00"
+                     oninput="formatCurrencyInput(this); updateHousingSubtotal()">
+            </div>
+          </div>
+          <button class="lock-btn" id="lock-lumpSum" title="Unlocked — solver will find the minimum amount"
+                  onclick="toggleLock('lumpSum')">🔓</button>
+        </div>
+
+        <div class="field-row" id="row-solverLsConfig" style="margin-top:4px;">
+          <div class="field-label">Cadence &amp; Start Month</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="solverLsCadence" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;">
+              <option value="biannually" selected>Every 6 months</option>
+              <option value="annually">Annually</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="once">One-time</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:5px;" class="ls-month-row">
+            <select id="solverLsStartMonthName" style="flex:2">
+              <option>January</option><option>February</option><option>March</option>
+              <option>April</option><option>May</option><option>June</option>
+              <option>July</option><option>August</option><option>September</option>
+              <option>October</option><option>November</option><option>December</option>
+            </select>
+            <input type="number" id="solverLsStartYear" min="2020" max="2080" placeholder="Year" style="flex:1;min-width:58px">
+          </div>
+        </div>
+
+        <p class="section-note" style="margin-top:6px;">
+          When <strong>unlocked</strong>, the solver finds the minimum per-occurrence amount needed to satisfy locked constraints. Lock it to fix the amount as a fixed input applied on top of scheduled lump sums.
+        </p>
+
+      </div>
+    </div><!-- /Solver Lump Sum -->
 
     <!-- ── Calculate ── -->
     <button class="calc-btn" onclick="calculate(); syncCollapsedValues()">
@@ -2484,10 +2488,12 @@ function updateHousingSubtotal() {
   const cadenceLabel = { once: 'once', annually: 'annually', biannually: 'every 6 mo', quarterly: 'quarterly', custom: `every ? mo` };
   const lines = [];
   if (solverAmt > 0) {
-    const cadence = document.getElementById('solverLsCadence').value;
-    const start   = document.getElementById('solverLsStart').value || '1';
-    const status  = solverLocked ? 'fixed' : 'solver will find minimum';
-    lines.push(`Solver lump sum: ${fmt(solverAmt)} ${cadenceLabel[cadence] || cadence} from month ${start} (${status})`);
+    const cadence  = document.getElementById('solverLsCadence').value;
+    const startMon = document.getElementById('solverLsStartMonthName').value;
+    const startYr  = document.getElementById('solverLsStartYear').value;
+    const start    = (startMon && startYr) ? `${startMon} ${startYr}` : 'loan start';
+    const status   = solverLocked ? 'fixed' : 'solver will find minimum';
+    lines.push(`Solver lump sum: ${fmt(solverAmt)} ${cadenceLabel[cadence] || cadence} from ${start} (${status})`);
   } else if (!solverLocked) {
     lines.push('Solver lump sum: will be calculated when you run Calculate');
   }
