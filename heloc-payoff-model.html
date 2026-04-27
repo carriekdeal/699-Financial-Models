@@ -1504,7 +1504,7 @@ function renderLsActiveRules() {
     const bgClr     = isSolver ? 'var(--accent-glow)' : 'var(--surface-2)';
     const badgeClr  = isSolver ? 'var(--accent)'      : 'var(--teal)';
     const badgeTxt  = isSolver ? 'Solver'             : 'Fixed';
-    const toggleTxt = isSolver ? '→ Fixed'            : '→ Solver';
+    const toggleTxt = isSolver ? '→ Fixed'            : 'Convert to Solver';
     return `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:6px 8px;
                   border-radius:6px;border:1px solid ${borderClr};background:${bgClr}">
@@ -2131,7 +2131,14 @@ const SOLVE_LABEL = {
 
 function getFirstFreeVar() {
   if (lsRulesData.some(r => r.mode === 'solver')) return 'lumpSum';
-  return SOLVE_PRIORITY.find(f => !lockState[f]) || null;
+  return SOLVE_PRIORITY.find(f => {
+    if (lockState[f]) return false;
+    if (f === 'targetHousingPmt' && !targetHousingWasSolved) {
+      const v = parseCurrency(document.getElementById('targetHousingPmt').value);
+      if (v > 0) return false;
+    }
+    return true;
+  }) || null;
 }
 
 // Write solved value back to the appropriate input field
