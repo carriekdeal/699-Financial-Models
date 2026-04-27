@@ -1626,8 +1626,26 @@ function runAmortization(params) {
   for (let n = 1; n <= limit; n++) {
     if (bal <= 0.005) break;
 
-    const startBal    = bal;
     const inRepayment = n > DRAW_MONTHS;
+
+    // Lump sum applied at start of month — before interest accrues on this period's balance.
+    // startBal reflects the balance the borrower carries into this period after the lump sum credit.
+    const lumpSum = lumpSumSchedule ? round2(lumpSumSchedule[n] || 0) : 0;
+    if (lumpSum > 0) bal = Math.max(0, round2(bal - lumpSum));
+
+    if (bal <= 0.005) {
+      schedule.push({
+        monthNum: n, date: monthNumToDate(startDateStr, n),
+        startBal: 0, minPmt: 0, addlContrib: 0, lumpSum,
+        totalPmt: 0, principal: 0, interest: 0, endBal: 0, cumulInterest,
+        contribChanged: false, hasLumpSum: true,
+        period: inRepayment ? 'repayment' : 'draw',
+      });
+      bal = 0;
+      break;
+    }
+
+    const startBal = bal;
 
     const interest = round2(startBal * monthlyRate);
     const minPmt   = round2(startBal * minPctPerMonth / 100);
@@ -1639,13 +1657,9 @@ function runAmortization(params) {
     const maxPmt = round2(startBal + interest);
     if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
 
-    const principal   = round2(totalPmt - interest);
-    const balAfterPmt = Math.max(0, round2(startBal - principal));
-
-    // Lump sum: pre-computed lookup, keyed by loan month number
-    const lumpSum = lumpSumSchedule ? (round2(lumpSumSchedule[n] || 0)) : 0;
-    const endBal  = Math.max(0, round2(balAfterPmt - lumpSum));
-    cumulInterest = round2(cumulInterest + interest);
+    const principal = round2(totalPmt - interest);
+    const endBal    = Math.max(0, round2(startBal - principal));
+    cumulInterest   = round2(cumulInterest + interest);
 
     const contribChanged = (n > 1 && addl !== prevContrib);
     prevContrib = addl;
@@ -2226,7 +2240,7 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     minPmt:           { lo: 0.0001, hi: 99.99,               tol: 0.0001 },
     rate:             { lo: 0.001,  hi: 99.99,                tol: 0.001  },
     debt:             { lo: 1,      hi: 1e8,                  tol: 1.0    },
-    lumpSum:          { lo: 0,      hi: 1e7,                  tol: 1.0    },
+    lumpSum:          { lo: 0,      hi: 1e7,                  tol: 0.5    },
   };
 
   let objFn;
