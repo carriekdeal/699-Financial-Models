@@ -880,10 +880,7 @@
         <div class="peek-row"><span class="peek-lbl">Target</span><span class="peek-val" id="pk-target">—</span></div>
         <div class="peek-row"><span class="peek-lbl">Fixed</span><span class="peek-val" id="pk-fixed">$2,307</span></div>
       </div>
-      <div class="peek-group">
-        <div class="peek-group-header">Lump Sum</div>
-        <div class="peek-row"><span class="peek-lbl">Solver $</span><span class="peek-val" id="pk-lumpSum">—</span></div>
-      </div>
+
       <button class="calc-btn" style="margin-top:4px;font-size:12px;padding:9px" onclick="calculate(); syncCollapsedValues()">⚡ Calculate</button>
     </div>
 
@@ -1063,133 +1060,6 @@
       </div>
     </div><!-- /Monthly Housing Budget -->
 
-    <!-- ── Scheduled Lump Sums ── -->
-    <div class="card">
-      <div class="card-header"><span class="icon">💰</span> Scheduled Lump Sums</div>
-      <div class="card-body">
-
-        <!-- Active rules — always visible -->
-        <div class="ls-active-list" id="lsActiveList">
-          <div class="ls-empty-msg" id="lsEmptyMsg">No lump sum rules yet.</div>
-        </div>
-
-        <!-- Inline form (hidden until + Add Lump Sum clicked) -->
-        <div class="ls-form-panel" id="lsFormPanel" style="display:none">
-
-          <div class="rule-field">
-            <label>Amount</label>
-            <div style="position:relative;display:flex;align-items:center;">
-              <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
-              <input type="text" inputmode="decimal" id="lsAmount" placeholder="e.g. 10,000"
-                     style="width:100%;padding:5px 7px 5px 20px;border:1px solid var(--border);border-radius:5px;font-size:12px;background:var(--surface-3);color:var(--text);outline:none;"
-                     oninput="formatCurrencyInput(this)">
-            </div>
-          </div>
-
-          <div class="rule-field">
-            <label>Cadence</label>
-            <select id="lsCadence" onchange="onLsCadenceChange()">
-              <option value="once">One-Time</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="biannually">Bi-Annually</option>
-              <option value="annually" selected>Annually</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-
-          <div class="rule-field" id="lsIntervalField" style="display:none">
-            <label>Every N months</label>
-            <input type="number" id="lsInterval" min="1" step="1" placeholder="e.g. 3">
-          </div>
-
-          <div style="flex-basis:100%">
-            <label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:4px;">Start Month</label>
-            <div class="ls-month-row">
-              <select id="lsStartMonthName">
-                <option>January</option><option>February</option><option>March</option>
-                <option>April</option><option>May</option><option>June</option>
-                <option>July</option><option>August</option><option>September</option>
-                <option>October</option><option>November</option><option>December</option>
-              </select>
-              <input type="number" id="lsStartYear" min="2020" max="2080" placeholder="Year">
-            </div>
-          </div>
-
-          <div style="flex-basis:100%" id="lsEndMonthField">
-            <label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:4px;">End Month <span style="font-weight:400;font-style:italic;text-transform:none;">(optional — blank = payoff)</span></label>
-            <div class="ls-month-row">
-              <select id="lsEndMonthName">
-                <option value="">— no end —</option>
-                <option>January</option><option>February</option><option>March</option>
-                <option>April</option><option>May</option><option>June</option>
-                <option>July</option><option>August</option><option>September</option>
-                <option>October</option><option>November</option><option>December</option>
-              </select>
-              <input type="number" id="lsEndYear" min="2020" max="2080" placeholder="Year">
-            </div>
-          </div>
-
-          <div class="ls-draft-err" id="lsFormErr"></div>
-
-          <div style="display:flex;gap:6px;flex-basis:100%">
-            <button class="ls-cancel-btn" onclick="cancelLsForm()">Cancel</button>
-            <button class="ls-confirm-btn" onclick="confirmLsRule()">＋ Add Rule</button>
-          </div>
-        </div>
-
-        <!-- Add button -->
-        <button class="ls-add-btn" id="lsAddBtn" onclick="showLsForm()">＋ Add Lump Sum</button>
-      </div>
-    </div><!-- /Scheduled Lump Sums -->
-
-    <!-- ── Solver Lump Sum ── -->
-    <div class="card">
-      <div class="card-header"><span class="icon">⚡</span> Solver Lump Sum</div>
-      <div class="card-body">
-
-        <div class="field-row" id="row-lumpSum">
-          <div class="field-inner">
-            <span class="field-label">Amount per Occurrence</span>
-            <div class="field-input-wrap">
-              <span class="field-prefix">$</span>
-              <input type="text" inputmode="decimal" class="field-input has-prefix" id="lumpSumAmount"
-                     placeholder="0.00"
-                     oninput="formatCurrencyInput(this); updateHousingSubtotal()">
-            </div>
-          </div>
-          <button class="lock-btn" id="lock-lumpSum" title="Unlocked — solver will find the minimum amount"
-                  onclick="toggleLock('lumpSum')">🔓</button>
-        </div>
-
-        <div class="field-row" id="row-solverLsConfig" style="margin-top:4px;">
-          <div class="field-label">Cadence &amp; Start Month</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select id="solverLsCadence" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;">
-              <option value="biannually" selected>Every 6 months</option>
-              <option value="annually">Annually</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="once">One-time</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:5px;" class="ls-month-row">
-            <select id="solverLsStartMonthName" style="flex:2">
-              <option>January</option><option>February</option><option>March</option>
-              <option>April</option><option>May</option><option>June</option>
-              <option>July</option><option>August</option><option>September</option>
-              <option>October</option><option>November</option><option>December</option>
-            </select>
-            <input type="number" id="solverLsStartYear" min="2020" max="2080" placeholder="Year" style="flex:1;min-width:58px">
-          </div>
-        </div>
-
-        <p class="section-note" style="margin-top:6px;">
-          When <strong>unlocked</strong>, the solver finds the minimum per-occurrence amount needed to satisfy locked constraints. Lock it to fix the amount as a fixed input applied on top of scheduled lump sums.
-        </p>
-
-      </div>
-    </div><!-- /Solver Lump Sum -->
-
     <!-- ── Calculate ── -->
     <button class="calc-btn" onclick="calculate(); syncCollapsedValues()">
       ⚡ Calculate Payoff Model
@@ -1358,8 +1228,6 @@
                 <th>Start Balance</th>
                 <th>Min. Payment</th>
                 <th>Addl. Contrib.</th>
-                <th>Sched. Lump Sum</th>
-                <th>Solver Lump Sum</th>
                 <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
                 <th>Total Payment</th>
                 <th>Principal</th>
@@ -1370,7 +1238,7 @@
             </thead>
             <tbody id="amortBody">
               <tr>
-                <td colspan="13" class="table-placeholder">
+                <td colspan="11" class="table-placeholder">
                   Press <strong>Calculate</strong> to generate the amortization schedule.
                 </td>
               </tr>
@@ -1399,11 +1267,9 @@ const MAX_LOAN_MONTHS = DRAW_MONTHS + REPAY_MONTHS;  // 480 total
 // All fields start explicitly unlocked so !lockState[f] is always a clean boolean
 const lockState = {
   rate: false, debt: false, minPmt: false,
-  targetHousingPmt: false, fixedObligations: false, lumpSum: false,
+  targetHousingPmt: false, fixedObligations: false,
   totalInterest: false, payoffMonths: false, payoffDate: false,
 };
-let lsRulesData     = [];  // [{id, rule, label}] — confirmed active rules
-let lsRuleIdCounter = 0;
 
 function toggleLock(field) {
   lockState[field] = !lockState[field];
@@ -1454,9 +1320,6 @@ let lastFixedObligations = 0;
   const m = String(today.getMonth() + 1).padStart(2,'0');
   const d = String(today.getDate()).padStart(2,'0');
   document.getElementById('startDate').value = `${y}-${m}-${d}`;
-  // Pre-populate solver lump sum start month to match loan start
-  document.getElementById('solverLsStartMonthName').value = LS_MON_NAMES[today.getMonth()];
-  document.getElementById('solverLsStartYear').value      = y;
   updateHousingSubtotal();
 })();
 
@@ -1489,137 +1352,6 @@ function addContribRule() {
 
 // ── Lump Sum Rules ───────────────────────────────
 
-function showLsForm() {
-  const startDate = document.getElementById('startDate').value;
-  if (startDate) {
-    const parts = startDate.split('-');
-    document.getElementById('lsStartMonthName').value = LS_MON_NAMES[parseInt(parts[1], 10) - 1];
-    document.getElementById('lsStartYear').value      = parts[0];
-  }
-  document.getElementById('lsFormPanel').style.display = '';
-  document.getElementById('lsAddBtn').style.display    = 'none';
-  document.getElementById('lsFormErr').style.display   = 'none';
-}
-
-function cancelLsForm() {
-  resetLsForm();
-  document.getElementById('lsFormPanel').style.display = 'none';
-  document.getElementById('lsAddBtn').style.display    = '';
-}
-
-function onLsCadenceChange() {
-  const cadence = document.getElementById('lsCadence').value;
-  document.getElementById('lsIntervalField').style.display  = cadence === 'custom' ? '' : 'none';
-  document.getElementById('lsEndMonthField').style.display  = cadence === 'once'   ? 'none' : '';
-}
-
-function confirmLsRule() {
-  const errEl = document.getElementById('lsFormErr');
-  errEl.style.display = 'none';
-
-  const amountVal = parseCurrency(document.getElementById('lsAmount').value);
-  if (isNaN(amountVal) || amountVal <= 0) {
-    errEl.textContent = 'Amount is required and must be > $0.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const cadence      = document.getElementById('lsCadence').value;
-  const startMonName = document.getElementById('lsStartMonthName').value;
-  let   startYear    = parseInt(document.getElementById('lsStartYear').value, 10);
-
-  // Fallback: if year field is blank, use the loan start year
-  if (isNaN(startYear)) {
-    const loanStartStr = document.getElementById('startDate').value;
-    if (loanStartStr) startYear = parseInt(loanStartStr.split('-')[0], 10);
-  }
-
-  if (!startMonName) {
-    errEl.textContent = 'Start month is required.';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (isNaN(startYear)) {
-    errEl.textContent = 'Start year could not be determined — set the loan start date first.';
-    errEl.style.display = 'block';
-    return;
-  }
-  const startMonthStr = `${startMonName} ${startYear}`;
-
-  const endMonName = document.getElementById('lsEndMonthName').value;
-  const endYear    = parseInt(document.getElementById('lsEndYear').value, 10);
-  const endMonthStr = (endMonName && !isNaN(endYear)) ? `${endMonName} ${endYear}` : '';
-
-  let interval = null;
-  if (cadence === 'custom') {
-    interval = parseInt(document.getElementById('lsInterval').value, 10);
-    if (isNaN(interval) || interval < 1) {
-      errEl.textContent = 'Custom cadence requires an interval of at least 1 month.';
-      errEl.style.display = 'block';
-      return;
-    }
-  }
-
-  const rule = { amount: amountVal, cadence, startMonthStr, endMonthStr, interval };
-  lsRuleIdCounter++;
-  lsRulesData.push({ id: lsRuleIdCounter, rule });
-  renderLsActiveRules();
-  cancelLsForm();
-}
-
-function removeLsRule(id) {
-  lsRulesData = lsRulesData.filter(r => r.id !== id);
-  renderLsActiveRules();
-  updateHousingSubtotal();
-}
-
-function resetLsForm() {
-  document.getElementById('lsAmount').value         = '';
-  document.getElementById('lsCadence').value        = 'annually';
-  document.getElementById('lsStartMonthName').value = 'January';
-  document.getElementById('lsStartYear').value      = '';
-  document.getElementById('lsEndMonthName').value   = '';
-  document.getElementById('lsEndYear').value        = '';
-  document.getElementById('lsInterval').value       = '';
-  document.getElementById('lsIntervalField').style.display = 'none';
-  document.getElementById('lsEndMonthField').style.display = '';
-  document.getElementById('lsFormErr').style.display = 'none';
-}
-
-function renderLsActiveRules() {
-  const container = document.getElementById('lsActiveList');
-  const emptyMsg  = document.getElementById('lsEmptyMsg');
-  container.querySelectorAll('.ls-card').forEach(el => el.remove());
-
-  if (lsRulesData.length === 0) {
-    emptyMsg.style.display = '';
-  } else {
-    emptyMsg.style.display = 'none';
-    const CADENCE_LABEL = {
-      once: 'One-Time', monthly: 'Monthly', quarterly: 'Quarterly',
-      biannually: 'Bi-Annually', annually: 'Annually', custom: 'Custom',
-    };
-    lsRulesData.forEach(({ id, rule }) => {
-      const cadenceStr  = CADENCE_LABEL[rule.cadence] || rule.cadence;
-      const intervalStr = rule.cadence === 'custom' ? ` · every ${rule.interval} mo` : '';
-      const endStr      = rule.endMonthStr ? ` → ${rule.endMonthStr}` : ' → payoff';
-      const rangeStr    = rule.cadence === 'once' ? rule.startMonthStr : `${rule.startMonthStr}${endStr}`;
-
-      const card = document.createElement('div');
-      card.className = 'ls-card';
-      card.id = 'lsRule-' + id;
-      card.innerHTML =
-        `<div class="ls-card-body">` +
-          `<div class="ls-card-amount">${fmt(rule.amount)}</div>` +
-          `<div class="ls-card-detail">${cadenceStr}${intervalStr} · ${rangeStr}</div>` +
-        `</div>` +
-        `<button class="rule-remove" title="Remove rule" onclick="removeLsRule(${id})">✕</button>`;
-      container.appendChild(card);
-    });
-  }
-  updateHousingSubtotal();
-}
-
 function removeRule(id) {
   const el = document.getElementById(id);
   if (el) el.remove();
@@ -1641,10 +1373,6 @@ function readContribRules() {
     }
   });
   return rules.sort((a, b) => a.startMonth - b.startMonth);
-}
-
-function readLumpSumRules() {
-  return lsRulesData.map(r => r.rule);
 }
 
 function getContribForMonth(baseContrib, changeRules, monthNum) {
@@ -1669,40 +1397,6 @@ function monthStrToLoanMonth(monthStr, startDateStr) {
   return result;
 }
 
-function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
-  let total = 0;
-  for (const r of lsRules) {
-    const s = r.startMonthStr
-      ? monthStrToLoanMonth(r.startMonthStr, startDateStr)
-      : (r.startMonth || 1);
-    if (s === null || monthNum < s) continue;
-
-    const e = r.endMonthStr ? monthStrToLoanMonth(r.endMonthStr, startDateStr) : null;
-    if (e !== null && monthNum > e) continue;
-
-    let fired = false;
-    switch (r.cadence) {
-      case 'once':
-        if (monthNum === s)                                     { fired = true; total += r.amount; } break;
-      case 'monthly':
-        fired = true; total += r.amount; break;
-      case 'annually':
-        if ((monthNum - s) % 12 === 0)                         { fired = true; total += r.amount; } break;
-      case 'biannually':
-        if ((monthNum - s) % 6  === 0)                         { fired = true; total += r.amount; } break;
-      case 'quarterly':
-        if ((monthNum - s) % 3  === 0)                         { fired = true; total += r.amount; } break;
-      case 'custom':
-        if (r.interval > 0 && (monthNum - s) % r.interval === 0) { fired = true; total += r.amount; } break;
-    }
-    if (window.LS_DEBUG && (fired || monthNum <= 3)) {
-      console.log('[getLumpSumForMonth] monthNum=' + monthNum + ' cadence=' + r.cadence + ' s=' + s + ' (monthNum-s)=' + (monthNum - s) + ' mod=' + (r.cadence === 'annually' ? (monthNum-s)%12 : r.cadence === 'biannually' ? (monthNum-s)%6 : r.cadence === 'quarterly' ? (monthNum-s)%3 : '-') + ' FIRED=' + fired + ' lumpSum=' + (fired ? r.amount : 0));
-    }
-  }
-  if (window.LS_DEBUG) console.log('[getLumpSumForMonth] monthNum=' + monthNum + ' returning total=' + total);
-  return total;
-}
-
 function monthNumToDate(startDateStr, monthOffset) {
   const [y, m] = startDateStr.split('-').map(Number);
   const dt = new Date(y, m + monthOffset - 2, 1);  // month 1 = start month
@@ -1723,13 +1417,12 @@ function monthNumToFullDate(startDateStr, monthOffset) {
 /**
  * Returns array of monthly rows. Each row:
  * { monthNum, date, startBal, minPmt, addlContrib,
- *   scheduledLumpSum, solverLumpSum, lumpSum (total),
  *   totalPmt, principal, interest, endBal, cumulInterest,
- *   contribChanged, hasScheduledLS, hasSolverLS, hasLumpSum }
+ *   contribChanged }
  */
 function runAmortization(params) {
   const { balance, annualRate, minPctPerMonth, baseContrib,
-          contribRules, lsRules, solverLsRules, startDateStr, maxMonths,
+          contribRules, lumpSumSchedule, startDateStr, maxMonths,
           housingTarget, fixedObligation } = params;
 
   const monthlyRate = annualRate / 100 / 12;
@@ -1745,7 +1438,6 @@ function runAmortization(params) {
     const startBal    = bal;
     const inRepayment = n > DRAW_MONTHS;
 
-    // ── Transaction 1: Regular housing payment on full startBal ──
     const interest = round2(startBal * monthlyRate);
     const minPmt   = round2(startBal * minPctPerMonth / 100);
     const addl = housingTarget > 0
@@ -1756,15 +1448,12 @@ function runAmortization(params) {
     const maxPmt = round2(startBal + interest);
     if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
 
-    const principal    = round2(totalPmt - interest);
-    const balAfterPmt  = Math.max(0, round2(startBal - principal));
+    const principal   = round2(totalPmt - interest);
+    const balAfterPmt = Math.max(0, round2(startBal - principal));
 
-    // ── Transaction 2: Lump sum — independent direct principal reduction ──
-    const scheduledLS = round2(getLumpSumForMonth(lsRules       || [], n, startDateStr));
-    const solverLS    = round2(getLumpSumForMonth(solverLsRules || [], n, startDateStr));
-    const lumpSum     = round2(scheduledLS + solverLS);
-
-    const endBal = Math.max(0, round2(balAfterPmt - lumpSum));
+    // Lump sum: pre-computed lookup, keyed by loan month number
+    const lumpSum = lumpSumSchedule ? (round2(lumpSumSchedule[n] || 0)) : 0;
+    const endBal  = Math.max(0, round2(balAfterPmt - lumpSum));
     cumulInterest = round2(cumulInterest + interest);
 
     const contribChanged = (n > 1 && addl !== prevContrib);
@@ -1776,8 +1465,6 @@ function runAmortization(params) {
       startBal,
       minPmt,
       addlContrib: addl,
-      scheduledLumpSum: scheduledLS,
-      solverLumpSum:    solverLS,
       lumpSum,
       totalPmt,
       principal,
@@ -1785,9 +1472,7 @@ function runAmortization(params) {
       endBal,
       cumulInterest,
       contribChanged,
-      hasScheduledLS: scheduledLS > 0,
-      hasSolverLS:    solverLS    > 0,
-      hasLumpSum:     lumpSum     > 0,
+      hasLumpSum: lumpSum > 0,
       period: inRepayment ? 'repayment' : 'draw',
     });
 
@@ -1809,8 +1494,7 @@ function buildAnnualSummary(schedule) {
         year: yr, months: 0,
         startBal: row.startBal,
         endBal: row.endBal,
-        totalMinPmt: 0, totalAddl: 0,
-        totalScheduledLS: 0, totalSolverLS: 0, totalLumpSum: 0,
+        totalMinPmt: 0, totalAddl: 0, totalLumpSum: 0,
         totalPmt: 0, totalPrincipal: 0, totalInterest: 0,
         cumulInterest: 0
       };
@@ -1818,11 +1502,9 @@ function buildAnnualSummary(schedule) {
     const y = years[yr];
     y.months++;
     y.endBal         = row.endBal;
-    y.totalMinPmt    += row.minPmt;
-    y.totalAddl      += row.addlContrib;
-    y.totalScheduledLS += row.scheduledLumpSum;
-    y.totalSolverLS    += row.solverLumpSum;
-    y.totalLumpSum     += row.lumpSum;
+    y.totalMinPmt  += row.minPmt;
+    y.totalAddl    += row.addlContrib;
+    y.totalLumpSum += row.lumpSum;
     y.totalPmt      += row.totalPmt;
     y.totalPrincipal+= row.principal;
     y.totalInterest += row.interest;
@@ -1839,7 +1521,7 @@ function runMinOnlyBaseline(balance, annualRate, minPct) {
   // Uses same draw/repayment structure. Naturally caps at MAX_LOAN_MONTHS (480).
   const params = {
     balance, annualRate, minPctPerMonth: minPct,
-    baseContrib: 0, contribRules: [], lsRules: [], solverLsRules: [],
+    baseContrib: 0, contribRules: [],
     startDateStr: document.getElementById('startDate').value,
   };
   return runAmortization(params);
@@ -1865,7 +1547,7 @@ function renderTable(schedule) {
   tbody.innerHTML = '';
 
   if (!schedule || schedule.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" class="table-placeholder">No data.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="table-placeholder">No data.</td></tr>';
     return;
   }
 
@@ -1886,7 +1568,7 @@ function renderMonthlyTable(schedule, tbody) {
       separatorInserted = true;
       const sep = document.createElement('tr');
       sep.className = 'period-separator';
-      sep.innerHTML = `<td colspan="13">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
+      sep.innerHTML = `<td colspan="11">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
       frag.appendChild(sep);
     }
 
@@ -1903,9 +1585,8 @@ function renderMonthlyTable(schedule, tbody) {
     badges.push(r.period === 'draw'
       ? '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.85">Draw</span>'
       : '<span class="badge" style="background:var(--teal);margin-left:4px;opacity:.75">Repay</span>');
-    if (r.contribChanged)  badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
-    if (r.hasScheduledLS)  badges.push('<span class="badge" style="background:var(--accent);margin-left:4px">Sched. LS</span>');
-    if (r.hasSolverLS)     badges.push('<span class="badge" style="background:var(--accent-lt);margin-left:4px">Solver LS</span>');
+    if (r.contribChanged) badges.push('<span class="badge" style="background:var(--teal);margin-left:4px">↑ Contrib</span>');
+    if (r.hasLumpSum)     badges.push('<span class="badge" style="background:var(--accent);margin-left:4px">Lump Sum</span>');
     if (r.endBal <= 0.005) badges.push('<span class="badge" style="background:var(--green);margin-left:4px">Paid Off</span>');
 
     const housingPmt = round2(lastFixedObligations + r.minPmt + r.addlContrib);
@@ -1915,8 +1596,6 @@ function renderMonthlyTable(schedule, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.minPmt)}</td>
       <td>${r.addlContrib > 0 ? fmt(r.addlContrib) : '—'}</td>
-      <td style="color:var(--accent)">${r.scheduledLumpSum > 0 ? fmt(r.scheduledLumpSum) : '—'}</td>
-      <td style="color:var(--teal)">${r.solverLumpSum    > 0 ? fmt(r.solverLumpSum)    : '—'}</td>
       <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(housingPmt)}</td>
       <td><strong>${fmt(round2(r.totalPmt + r.lumpSum))}</strong></td>
       <td>${fmt(r.principal)}</td>
@@ -1938,8 +1617,6 @@ function renderAnnualTable(annualRows, tbody) {
     <th>Start Balance</th>
     <th>Total Min. Pmts</th>
     <th>Total Addl.</th>
-    <th title="Scheduled (user-defined) lump sums">Sched. Lump Sums</th>
-    <th title="Solver-derived bi-annual lump sums">Solver Lump Sums</th>
     <th title="Fixed Obligations + Min. HELOC Payments + Additional Contributions" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
     <th>Total Paid</th>
     <th>Total Principal</th>
@@ -1956,7 +1633,7 @@ function renderAnnualTable(annualRows, tbody) {
       annualSepInserted = true;
       const sep = document.createElement('tr');
       sep.className = 'period-separator';
-      sep.innerHTML = `<td colspan="13">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
+      sep.innerHTML = `<td colspan="11">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
       frag.appendChild(sep);
     }
     const tr = document.createElement('tr');
@@ -1968,8 +1645,6 @@ function renderAnnualTable(annualRows, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.totalMinPmt)}</td>
       <td>${r.totalAddl > 0 ? fmt(r.totalAddl) : '—'}</td>
-      <td style="color:var(--accent)">${r.totalScheduledLS > 0 ? fmt(r.totalScheduledLS) : '—'}</td>
-      <td style="color:var(--teal)">${r.totalSolverLS    > 0 ? fmt(r.totalSolverLS)    : '—'}</td>
       <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(annualHousing)}</td>
       <td><strong>${fmt(round2(r.totalPmt + r.totalLumpSum))}</strong></td>
       <td>${fmt(r.totalPrincipal)}</td>
@@ -1991,8 +1666,6 @@ function restoreMonthlyHeaders() {
     <th>Start Balance</th>
     <th>Min. Payment</th>
     <th>Addl. Contrib.</th>
-    <th title="Fixed one-time or recurring payments entered manually">Sched. Lump Sum</th>
-    <th title="Minimum bi-annual amount found by solver">Solver Lump Sum</th>
     <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
     <th>Total Payment</th>
     <th>Principal</th>
@@ -2236,11 +1909,10 @@ function payoffDateToMonths(startDateStr, payoffDateStr) {
 }
 
 // Return the first field name from the priority list that is NOT locked
-const SOLVE_PRIORITY = ['targetHousingPmt', 'lumpSum', 'minPmt', 'rate', 'debt'];
-const PARAM_KEY = { targetHousingPmt: 'housingTarget', lumpSum: null /* special */, minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
+const SOLVE_PRIORITY = ['targetHousingPmt', 'minPmt', 'rate', 'debt'];
+const PARAM_KEY = { targetHousingPmt: 'housingTarget', minPmt: 'minPctPerMonth', rate: 'annualRate', debt: 'balance' };
 const SOLVE_LABEL = {
   targetHousingPmt: 'Target Monthly Housing Payment',
-  lumpSum:          'Bi-Annual Lump Sum Amount',
   minPmt:           'Minimum Monthly Payment %',
   rate:             'Annual Interest Rate',
   debt:             'Debt Amount',
@@ -2252,11 +1924,11 @@ function getFirstFreeVar() {
 
 // Write solved value back to the appropriate input field
 function applySolvedValue(field, value) {
-  const ids = { targetHousingPmt: 'targetHousingPmt', lumpSum: 'lumpSumAmount', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
+  const ids = { targetHousingPmt: 'targetHousingPmt', minPmt: 'minPaymentPct', rate: 'interestRate', debt: 'debtAmount' };
   const el  = document.getElementById(ids[field]);
   if (!el) return;
   el.value = value.toFixed(field === 'minPmt' ? 4 : 2);
-  if (['targetHousingPmt', 'lumpSum', 'debt'].includes(field)) formatCurrencyInput(el);
+  if (['targetHousingPmt', 'debt'].includes(field)) formatCurrencyInput(el);
   el.style.transition = 'background 0.4s';
   el.style.background = 'rgba(16,185,129,.18)';
   setTimeout(() => { el.style.background = ''; updateHousingSubtotal(); }, 1500);
@@ -2264,7 +1936,7 @@ function applySolvedValue(field, value) {
 
 function showSolvedBadge(field) {
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
-  const ids = { targetHousingPmt: 'row-targetHousingPmt', lumpSum: 'row-lumpSum', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
+  const ids = { targetHousingPmt: 'row-targetHousingPmt', minPmt: 'row-minPmt', rate: 'row-rate', debt: 'row-debt' };
   const row = document.getElementById(ids[field]);
   if (!row) return;
   const lbl = row.querySelector('.field-label');
@@ -2277,7 +1949,7 @@ function showSolvedBadge(field) {
 }
 
 // ── 8c: Forward (no-solve) calculation ──────────
-function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRules, startDateStr) {
+function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr) {
   const errs = [];
   if (isNaN(rate)   || rate   <= 0) errs.push('Interest Rate is required and must be > 0.');
   if (isNaN(debt)   || debt   <= 0) errs.push('Debt Amount is required and must be > 0.');
@@ -2287,7 +1959,7 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRul
   const params = {
     balance: debt, annualRate: rate, minPctPerMonth: minPct,
     housingTarget: targetHousingPmt, fixedObligation,
-    contribRules: [], lsRules, solverLsRules, startDateStr
+    contribRules: [], startDateStr
   };
   const schedule = runAmortization(params);
 
@@ -2308,13 +1980,13 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRul
 }
 
 // ── 8d: Bidirectional solver ─────────────────────
-function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRules, startDateStr, solverLsConfig) {
+function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr) {
   const freeVar = getFirstFreeVar();
 
   if (!freeVar) {
     showError(
       'All input fields are locked — unlock at least one of: ' +
-      '<strong>Target Housing Payment</strong>, <strong>Lump Sum Amount</strong>, <strong>Min. Payment %</strong>, ' +
+      '<strong>Target Housing Payment</strong>, <strong>Min. Payment %</strong>, ' +
       '<strong>Interest Rate</strong>, or <strong>Debt Amount</strong> ' +
       'so the solver has a variable to adjust.'
     );
@@ -2329,62 +2001,28 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   if (errs.length) { showError(errs.join('<br>')); return; }
 
   const paramField = PARAM_KEY[freeVar];
-  // baseParams always carries scheduled lsRules as fixed; solverLsRules varies per objFn call
   const baseParams = {
     annualRate:     rate,
     balance:        debt,
     minPctPerMonth: minPct,
     housingTarget:  targetHousingPmt,
     fixedObligation,
-    contribRules: [], lsRules, solverLsRules, startDateStr
+    contribRules: [], startDateStr
   };
 
   // Solver bounds and tolerance by free variable
   const bounds = {
     targetHousingPmt: { lo: 0,      hi: (debt || 1e5) * 20, tol: 0.5    },
-    lumpSum:          { lo: 0,      hi: (debt || 1e5) * 10, tol: 1.0    },
     minPmt:           { lo: 0.0001, hi: 99.99,               tol: 0.0001 },
     rate:             { lo: 0.001,  hi: 99.99,                tol: 0.001  },
     debt:             { lo: 1,      hi: 1e8,                  tol: 1.0    },
   };
 
-  // Objective function: fn(x) → the metric we are targeting
-  let objFn;
-  if (freeVar === 'lumpSum') {
-    // Scheduled lsRules are fixed constraints. Solver varies solverLsRules only.
-    const { cadence = 'biannually', startMonth = 1 } = solverLsConfig || {};
-    objFn = x => {
-      const solverRule = x > 0 ? [{ amount: x, cadence, startMonth, interval: 6 }] : [];
-      // lsRules (scheduled) stays fixed; only solverLsRules changes
-      const s = runAmortization({ ...baseParams, solverLsRules: solverRule });
-      if (type === 'months')   return s.length;
-      if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
-    };
-
-    // Pre-check: do scheduled lump sums alone already satisfy the constraint?
-    const atZero = objFn(0);
-    const alreadyOk = atZero <= target;
-    if (alreadyOk) {
-      applySolvedValue('lumpSum', 0);
-      showSolvedBadge('lumpSum');
-      // Run with scheduled rules only, solver lump sum = 0
-      const schedule = runAmortization({ ...baseParams, solverLsRules: [] });
-      if (!schedule.length) { showError('Solver produced no schedule. Check inputs.'); return; }
-      renderResults(schedule, { ...baseParams, solverLsRules: [], solverLsAmount: 0, solverLsConfig });
-      return;
-    }
-  } else {
-    objFn = x => {
-      // Lump sums must not reduce the solved housing target — strip them from the
-      // objective so the solver treats them as purely additive on top of housing.
-      const solveParams = freeVar === 'targetHousingPmt'
-        ? { ...baseParams, [paramField]: x, lsRules: [], solverLsRules: [] }
-        : { ...baseParams, [paramField]: x };
-      const s = runAmortization(solveParams);
-      if (type === 'months')   return s.length;
-      if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
-    };
-  }
+  const objFn = x => {
+    const s = runAmortization({ ...baseParams, [paramField]: x });
+    if (type === 'months')   return s.length;
+    if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
+  };
 
   const { lo, hi, tol } = bounds[freeVar];
 
@@ -2443,19 +2081,7 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
   showSolvedBadge(freeVar);
 
   // Final forward pass with solved value
-  let finalParams;
-  if (freeVar === 'lumpSum') {
-    const { cadence = 'biannually', startMonth = 1 } = solverLsConfig || {};
-    const solvedAmt  = result.value;
-    // lsRules (scheduled) remains unchanged; solver rule goes into solverLsRules
-    const finalSolverRules = solvedAmt > 0
-      ? [{ amount: solvedAmt, cadence, startMonth, interval: 6 }]
-      : [];
-    if (window.LS_DEBUG) console.log('[runSolver] finalSolverRules:', JSON.stringify(finalSolverRules), '— fires at months:', (() => { const hits = []; for (let n = 1; n <= 120; n++) { const s = startMonth; if (n < s) continue; let f = false; if (cadence==='once'&&n===s) f=true; else if (cadence==='monthly') f=true; else if (cadence==='annually'&&(n-s)%12===0) f=true; else if (cadence==='biannually'&&(n-s)%6===0) f=true; else if (cadence==='quarterly'&&(n-s)%3===0) f=true; if (f) hits.push(n); } return hits.slice(0,8).join(','); })());
-    finalParams = { ...baseParams, solverLsRules: finalSolverRules, solverLsAmount: solvedAmt, solverLsConfig };
-  } else {
-    finalParams = { ...baseParams, [paramField]: result.value };
-  }
+  const finalParams = { ...baseParams, [paramField]: result.value };
   const schedule = runAmortization(finalParams);
 
   if (!schedule.length) {
@@ -2479,38 +2105,12 @@ function updateHousingSubtotal() {
   setText('hs-min',   helocMin !== null ? fmt(helocMin) : '—');
   setText('hs-addl',  addl     !== null ? fmt(addl)     : '—');
   setText('hs-total', target   > 0      ? fmt(target)   : '—');
-
-  // Lump sum display (solver amount + user rules)
-  const userRules    = readLumpSumRules();
-  const solverAmt    = parseCurrency(document.getElementById('lumpSumAmount').value) || 0;
-  const solverLocked = lockState['lumpSum'];
-  const lumpsEl      = document.getElementById('hs-lumps');
-  const cadenceLabel = { once: 'once', annually: 'annually', biannually: 'every 6 mo', quarterly: 'quarterly', custom: `every ? mo` };
-  const lines = [];
-  if (solverAmt > 0) {
-    const cadence  = document.getElementById('solverLsCadence').value;
-    const startMon = document.getElementById('solverLsStartMonthName').value;
-    const startYr  = document.getElementById('solverLsStartYear').value;
-    const start    = (startMon && startYr) ? `${startMon} ${startYr}` : 'loan start';
-    const status   = solverLocked ? 'fixed' : 'solver will find minimum';
-    lines.push(`Solver lump sum: ${fmt(solverAmt)} ${cadenceLabel[cadence] || cadence} from ${start} (${status})`);
-  } else if (!solverLocked) {
-    lines.push('Solver lump sum: will be calculated when you run Calculate');
-  }
-  userRules.forEach(r => {
-    const cStr = r.cadence === 'custom' ? `every ${r.interval} mo` : (cadenceLabel[r.cadence] || r.cadence);
-    lines.push(`Lump sum: ${fmt(r.amount)} ${cStr} from ${r.startMonthStr || `month ${r.startMonth}`}${r.endMonthStr ? ` → ${r.endMonthStr}` : ''}`);
-  });
-  if (lines.length > 0) {
-    lumpsEl.innerHTML = lines.join('<br>');
-    lumpsEl.style.display = '';
-  } else {
-    lumpsEl.style.display = 'none';
-  }
+  const lumpsEl = document.getElementById('hs-lumps');
+  if (lumpsEl) lumpsEl.style.display = 'none';
 }
 
 // ── 8f: Insights panel ───────────────────────────
-function generateInsights(schedule, params, baseline, noLsBaseline) {
+function generateInsights(schedule, params, baseline) {
   const el = document.getElementById('insightsList');
   if (!el) return;
   if (!schedule.length) { el.innerHTML = '<div class="insight-placeholder">Run a calculation to see insights.</div>'; return; }
@@ -2542,10 +2142,7 @@ function generateInsights(schedule, params, baseline, noLsBaseline) {
     : (baseline.length ? baseline[baseline.length - 1].cumulInterest : totalInterest);
   const interestSaved = round2(baselineInterest - totalInterest);
   const monthsSaved   = baselinePaidOff ? (baseline.length - payoffMonths) : null;
-  const hasAddl         = schedule.some(r => r.addlContrib > 0);
-  const hasLumps        = schedule.some(r => r.lumpSum > 0);
-  const hasScheduledLs  = schedule.some(r => r.scheduledLumpSum > 0);
-  const hasSolverLs     = schedule.some(r => r.solverLumpSum    > 0);
+  const hasAddl = schedule.some(r => r.addlContrib > 0);
   if (hasAddl) {
     const savedStr = interestSaved > 0 ? `, saving ${fmtK(interestSaved)} in interest` : '';
     const timeStr  = monthsSaved !== null && monthsSaved > 0
@@ -2559,73 +2156,7 @@ function generateInsights(schedule, params, baseline, noLsBaseline) {
     });
   }
 
-  // 3 — Lump sum metrics: scheduled and solver shown separately
-  if (hasLumps) {
-    const noLsLast     = noLsBaseline && noLsBaseline.length ? noLsBaseline[noLsBaseline.length - 1] : null;
-    const noLsInterest = noLsLast ? noLsLast.cumulInterest : totalInterest;
-    const totalLsSaved = round2(noLsInterest - totalInterest);
-
-    // Scheduled lump sums insight
-    if (hasScheduledLs) {
-      const schedTotal = schedule.reduce((s, r) => s + (r.scheduledLumpSum || 0), 0);
-      const schedCount = schedule.filter(r => r.scheduledLumpSum > 0).length;
-      items.push({
-        type: 'success',
-        icon: '📅',
-        headline: `Scheduled lump sums: ${schedCount} payment(s) · ${fmtK(schedTotal)} total`,
-        detail: hasScheduledLs && !hasSolverLs && totalLsSaved > 0
-          ? `${fmtK(totalLsSaved)} interest saved vs. no lump sums`
-          : 'Applied as fixed inputs — not affected by the solver'
-      });
-    }
-
-    // Solver lump sum insight (4 data points)
-    const solverAmt    = params.solverLsAmount;
-    const hasSolvedLs  = solverAmt !== undefined && solverAmt !== null;
-    const cfg          = params.solverLsConfig || {};
-    const cadenceLabel = { biannually: 'every 6 months', annually: 'annually', quarterly: 'quarterly', once: 'one-time' };
-    const cadenceStr   = cadenceLabel[cfg.cadence] || cfg.cadence || 'bi-annually';
-
-    if (hasSolvedLs) {
-      const solverTotal = schedule.reduce((s, r) => s + (r.solverLumpSum || 0), 0);
-      const solverCount = schedule.filter(r => r.solverLumpSum > 0).length;
-      // Interest saved by solver lump sums specifically (compare to scheduled-only run)
-      const noSolverBaseline = hasScheduledLs
-        ? runAmortization({ ...params, solverLsRules: [] })
-        : noLsBaseline;
-      const noSolverInterest = noSolverBaseline.length
-        ? noSolverBaseline[noSolverBaseline.length - 1].cumulInterest
-        : totalInterest;
-      const solverLsSaved = round2(noSolverInterest - totalInterest);
-
-      items.push({
-        type: solverAmt > 0 ? 'success' : 'info',
-        icon: '🏦',
-        headline: solverAmt > 0
-          ? `Minimum solver lump sum: ${fmt(solverAmt)} ${cadenceStr}`
-          : 'No additional solver lump sum required to meet target',
-        detail: solverAmt > 0
-          ? `${solverCount} payment(s) · ${fmtK(solverTotal)} total · ${solverLsSaved > 0 ? fmtK(solverLsSaved) + ' interest saved vs. scheduled-only' : 'savings minimal'}`
-          : hasScheduledLs
-            ? 'Scheduled lump sums already satisfy the locked constraint'
-            : 'Other parameters already satisfy the locked constraint'
-      });
-    } else if (hasSolverLs) {
-      // Solver lump sum applied (locked/fixed, not dynamically solved)
-      const solverTotal = schedule.reduce((s, r) => s + (r.solverLumpSum || 0), 0);
-      const solverCount = schedule.filter(r => r.solverLumpSum > 0).length;
-      items.push({
-        type: 'success',
-        icon: '🏦',
-        headline: `Solver lump sum (fixed): ${solverCount} payment(s) · ${fmtK(solverTotal)} total`,
-        detail: totalLsSaved > 0
-          ? `${fmtK(totalLsSaved)} combined interest saved vs. no lump sums`
-          : 'Applied as fixed bi-annual payments'
-      });
-    }
-  }
-
-  // 4 — 50% principal payoff milestone
+  // 3 — 50% principal payoff milestone
   const halfBal = principal / 2;
   const halfRow  = schedule.find(r => r.endBal <= halfBal);
   if (halfRow) {
@@ -2723,13 +2254,8 @@ function renderResults(schedule, params) {
   renderTable(schedule);
   renderCharts(schedule);
   const baseline = runMinOnlyBaseline(params.balance, params.annualRate, params.minPctPerMonth);
-  // Baseline without any lump sums (for computing interest saved by lump sums)
-  const hasAnyLumps = schedule.some(r => r.lumpSum > 0);
-  const noLsBaseline = hasAnyLumps
-    ? runAmortization({ ...params, lsRules: [], solverLsRules: [] })
-    : schedule;
   updateSummary(schedule, params, baseline);
-  generateInsights(schedule, params, baseline, noLsBaseline);
+  generateInsights(schedule, params, baseline);
 }
 
 // ── 8f: Main entry point (Calculate button) ──────
@@ -2744,25 +2270,6 @@ function calculate() {
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
   const targetHousingPmt = parseCurrency(document.getElementById('targetHousingPmt').value) || 0;
   const fixedObligation  = parseCurrency(document.getElementById('fixedObligations').value) || 0;
-  const userLsRules      = readLumpSumRules();
-
-  // Solver lump sum config (used when 'lumpSum' is the free variable)
-  const solverLsAmount        = parseCurrency(document.getElementById('lumpSumAmount').value) || 0;
-  const solverLsCadence       = document.getElementById('solverLsCadence').value;
-  const solverLsStartMonthName = document.getElementById('solverLsStartMonthName').value;
-  const solverLsStartYear      = parseInt(document.getElementById('solverLsStartYear').value, 10);
-  const solverLsStart = (solverLsStartMonthName && !isNaN(solverLsStartYear))
-    ? (monthStrToLoanMonth(`${solverLsStartMonthName} ${solverLsStartYear}`, startDateStr) || 1)
-    : 1;
-  const solverLsConfig = { cadence: solverLsCadence, startMonth: solverLsStart };
-
-  // Scheduled lump sums (user-defined rules) are always fixed inputs.
-  // The solver lump sum is tracked separately — either locked (fixed amount) or free.
-  const lsRules = userLsRules;   // scheduled rules: never mixed into solverLsRules
-  const solverLsRulesFixed = (lockState['lumpSum'] && solverLsAmount > 0)
-    ? [{ amount: solverLsAmount, cadence: solverLsCadence, startMonth: solverLsStart, interval: 6 }]
-    : [];
-
   // Determine which output fields are locked → become solve targets
   const targets = [];
 
@@ -2806,10 +2313,10 @@ function calculate() {
   }
 
   if (targets.length === 0) {
-    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRulesFixed, startDateStr);
+    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr);
   } else {
     const { type, target } = targets[0];
-    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lsRules, solverLsRulesFixed, startDateStr, solverLsConfig);
+    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr);
   }
 }
 
@@ -2944,13 +2451,6 @@ function saveScenario() {
   // active workspace reflects only live field state going forward.
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
 
-  // If lumpSumAmount was solver-found (lumpSum is unlocked), its value is
-  // now captured in the scenario. Clear it so the next Calculate always
-  // performs a fresh solve rather than anchoring to the saved result.
-  if (!lockState['lumpSum']) {
-    const lsEl = document.getElementById('lumpSumAmount');
-    if (lsEl) { lsEl.value = ''; updateHousingSubtotal(); }
-  }
 }
 
 // ── Clear all scenarios ──────────────────────────
@@ -3120,7 +2620,7 @@ function exportAmortCSV() {
 
   const header = [
     'Month','Date','Start Balance','Min Payment','Addl Contrib',
-    'Sched Lump Sum','Solver Lump Sum',
+    'Lump Sum',
     'Housing Total (Fixed+Min+Addl)','Total Payment','Principal','Interest','End Balance','Cumul Interest'
   ];
 
@@ -3132,8 +2632,7 @@ function exportAmortCSV() {
       r.startBal.toFixed(2),
       r.minPmt.toFixed(2),
       r.addlContrib.toFixed(2),
-      (r.scheduledLumpSum || 0).toFixed(2),
-      (r.solverLumpSum    || 0).toFixed(2),
+      r.lumpSum.toFixed(2),
       housing.toFixed(2),
       r.totalPmt.toFixed(2),
       r.principal.toFixed(2),
@@ -3146,15 +2645,14 @@ function exportAmortCSV() {
   // Append annual summary as a second block
   rows.push([], ['--- ANNUAL SUMMARY ---']);
   rows.push(['Year','Months','Start Balance','Total Min Pmts','Total Addl',
-             'Total Sched Lump Sums','Total Solver Lump Sums',
+             'Total Lump Sums',
              'Total Paid','Total Principal','Total Interest','End Balance','Cumul Interest']);
   for (const yr of buildAnnualSummary(lastSchedule)) {
     rows.push([
       `Year ${yr.year}`, yr.months,
       yr.startBal.toFixed(2), yr.totalMinPmt.toFixed(2),
       yr.totalAddl.toFixed(2),
-      (yr.totalScheduledLS || 0).toFixed(2),
-      (yr.totalSolverLS    || 0).toFixed(2),
+      yr.totalLumpSum.toFixed(2),
       yr.totalPmt.toFixed(2), yr.totalPrincipal.toFixed(2),
       yr.totalInterest.toFixed(2), yr.endBal.toFixed(2),
       yr.cumulInterest.toFixed(2),
@@ -3221,7 +2719,6 @@ function syncCollapsedValues() {
     ['payoffMonths',      'pk-payoffMo', v => v ? v + ' mo': '—'],
     ['targetHousingPmt',  'pk-target',   v => v ? '$' + v  : '—'],
     ['fixedObligations',  'pk-fixed',    v => v ? '$' + v  : '—'],
-    ['lumpSumAmount',     'pk-lumpSum',  v => v ? '$' + v  : '—'],
   ];
   map.forEach(([inputId, pkId, fmt]) => {
     const inp = document.getElementById(inputId);
