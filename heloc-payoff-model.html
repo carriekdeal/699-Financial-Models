@@ -1060,6 +1060,69 @@
       </div>
     </div><!-- /Monthly Housing Budget -->
 
+    <!-- ── Scheduled Lump Sums ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">💰</span> Scheduled Lump Sums</div>
+      <div class="card-body">
+        <p class="section-note">Extra principal payments — one-time or recurring. Applied before interest compounds each month.</p>
+
+        <div id="lsActiveRules"></div>
+
+        <!-- Add rule form (hidden by default) -->
+        <div id="lsForm" style="display:none;margin-bottom:8px">
+          <div class="field-row" style="margin-bottom:6px">
+            <div class="field-inner">
+              <span class="field-label">Amount</span>
+              <div class="field-input-wrap">
+                <span class="field-prefix">$</span>
+                <input type="text" inputmode="decimal" class="field-input has-prefix" id="lsAmount"
+                       placeholder="e.g. 10,000" oninput="formatCurrencyInput(this)">
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:6px">
+            <div class="field-inner">
+              <span class="field-label">Cadence</span>
+              <div class="field-input-wrap">
+                <select class="field-input" id="lsCadence">
+                  <option value="once">One-time</option>
+                  <option value="annual" selected>Annual</option>
+                  <option value="semiannual">Semi-annual (every 6 mo.)</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:6px">
+            <div class="field-inner">
+              <span class="field-label">Starting Month</span>
+              <div style="display:flex;gap:6px">
+                <select class="field-input" id="lsStartMonth" style="flex:1">
+                  <option value="1">January</option><option value="2">February</option>
+                  <option value="3">March</option><option value="4">April</option>
+                  <option value="5">May</option><option value="6">June</option>
+                  <option value="7">July</option><option value="8">August</option>
+                  <option value="9">September</option><option value="10">October</option>
+                  <option value="11">November</option><option value="12">December</option>
+                </select>
+                <input type="number" class="field-input" id="lsStartYear" style="width:76px"
+                       placeholder="2026" min="2020" max="2080">
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button class="calc-btn" style="flex:1;font-size:12px;padding:8px" onclick="confirmLsRule()">Add Rule</button>
+            <button class="rule-remove" style="padding:8px 14px;border-radius:6px" onclick="cancelLsForm()">Cancel</button>
+          </div>
+        </div>
+
+        <button id="lsAddBtn" class="calc-btn"
+                style="width:100%;font-size:12px;padding:8px;background:var(--surface-3);color:var(--text-dim);border:1px dashed var(--border-lt)"
+                onclick="showLsForm()">+ Add Lump Sum</button>
+      </div>
+    </div><!-- /Scheduled Lump Sums -->
+
     <!-- ── Calculate ── -->
     <button class="calc-btn" onclick="calculate(); syncCollapsedValues()">
       ⚡ Calculate Payoff Model
@@ -1228,6 +1291,7 @@
                 <th>Start Balance</th>
                 <th>Min. Payment</th>
                 <th>Addl. Contrib.</th>
+                <th>Lump Sum</th>
                 <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
                 <th>Total Payment</th>
                 <th>Principal</th>
@@ -1238,7 +1302,7 @@
             </thead>
             <tbody id="amortBody">
               <tr>
-                <td colspan="11" class="table-placeholder">
+                <td colspan="12" class="table-placeholder">
                   Press <strong>Calculate</strong> to generate the amortization schedule.
                 </td>
               </tr>
@@ -1313,6 +1377,8 @@ function syncPayoffFields(source) {
 
 const LS_MON_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let lastFixedObligations = 0;
+let lsRulesData = [];
+let lsRuleIdCounter = 0;
 
 (function initDate() {
   const today = new Date();
@@ -1357,6 +1423,79 @@ function removeRule(id) {
   if (el) el.remove();
 }
 
+function showLsForm() {
+  document.getElementById('lsForm').style.display = '';
+  document.getElementById('lsAddBtn').style.display = 'none';
+  // Populate month select with current year context
+  const startDateStr = document.getElementById('startDate').value;
+  const yearNow = startDateStr ? parseInt(startDateStr.split('-')[0], 10) : new Date().getFullYear();
+  const sel = document.getElementById('lsStartMonth');
+  sel.innerHTML = LS_MON_NAMES.map((n, i) => `<option value="${i + 1}">${n}</option>`).join('');
+  const yearEl = document.getElementById('lsStartYear');
+  if (!yearEl.value) yearEl.value = yearNow;
+}
+
+function cancelLsForm() {
+  document.getElementById('lsForm').style.display = 'none';
+  document.getElementById('lsAddBtn').style.display = '';
+  document.getElementById('lsAmount').value = '';
+  document.getElementById('lsStartYear').value = '';
+}
+
+function confirmLsRule() {
+  const amount = parseCurrency(document.getElementById('lsAmount').value);
+  if (isNaN(amount) || amount <= 0) {
+    alert('Enter a valid amount greater than $0.');
+    return;
+  }
+  const cadence    = document.getElementById('lsCadence').value;
+  const monthIdx   = parseInt(document.getElementById('lsStartMonth').value, 10);
+  const year       = parseInt(document.getElementById('lsStartYear').value, 10);
+  const startDateStr = document.getElementById('startDate').value;
+  if (!startDateStr) { alert('Set a Plan Start Date first.'); return; }
+  if (isNaN(year)) { alert('Enter a valid 4-digit year.'); return; }
+  const monthName  = LS_MON_NAMES[monthIdx - 1];
+  const startMonth = monthStrToLoanMonth(`${monthName} ${year}`, startDateStr);
+  if (!startMonth || startMonth < 1) {
+    alert('Start month must be on or after the plan start date.');
+    return;
+  }
+  lsRuleIdCounter++;
+  lsRulesData.push({
+    id: lsRuleIdCounter,
+    amount,
+    cadence,
+    startMonth,
+    label: `${monthName} ${year} (mo. ${startMonth})`,
+  });
+  renderLsActiveRules();
+  cancelLsForm();
+}
+
+function removeLsRule(id) {
+  lsRulesData = lsRulesData.filter(r => r.id !== id);
+  renderLsActiveRules();
+}
+
+function renderLsActiveRules() {
+  const container = document.getElementById('lsActiveRules');
+  if (!container) return;
+  if (!lsRulesData.length) {
+    container.innerHTML = '';
+    return;
+  }
+  const CADENCE_LABEL = { once: 'Once', annual: 'Annual', semiannual: 'Semi-annual', quarterly: 'Quarterly', monthly: 'Monthly' };
+  container.innerHTML = lsRulesData.map(r => `
+    <div class="rule-row" style="align-items:center;margin-bottom:4px">
+      <div style="flex:1;font-size:12px;color:var(--text-dim)">
+        <strong>${fmt(r.amount)}</strong>
+        <span style="color:var(--muted);margin:0 4px">·</span>${CADENCE_LABEL[r.cadence] || r.cadence}
+        <span style="color:var(--muted);margin:0 4px">·</span>starts ${r.label}
+      </div>
+      <button class="rule-remove" title="Remove" onclick="removeLsRule(${r.id})">✕</button>
+    </div>`).join('');
+}
+
 // ════════════════════════════════════════════════
 // SECTION 2 — INPUT READERS
 // ════════════════════════════════════════════════
@@ -1395,6 +1534,23 @@ function monthStrToLoanMonth(monthStr, startDateStr) {
   const result = (calYear - sy) * 12 + (calMonth - sm) + 1;
   if (window.LS_DEBUG) console.log('[monthStrToLoanMonth]', JSON.stringify(monthStr), '+ startDate', startDateStr, '=> calMonth=' + calMonth + ' calYear=' + calYear + ' sy=' + sy + ' sm=' + sm + ' => loanMonth=' + result);
   return result;
+}
+
+function computeLsLookup(rules) {
+  const lookup = {};
+  for (const rule of rules) {
+    const { amount, cadence, startMonth } = rule;
+    if (!amount || amount <= 0 || startMonth < 1) continue;
+    if (cadence === 'once') {
+      lookup[startMonth] = round2((lookup[startMonth] || 0) + amount);
+    } else {
+      const interval = cadence === 'monthly' ? 1 : cadence === 'quarterly' ? 3 : cadence === 'semiannual' ? 6 : 12;
+      for (let m = startMonth; m <= MAX_LOAN_MONTHS; m += interval) {
+        lookup[m] = round2((lookup[m] || 0) + amount);
+      }
+    }
+  }
+  return lookup;
 }
 
 function monthNumToDate(startDateStr, monthOffset) {
@@ -1547,7 +1703,7 @@ function renderTable(schedule) {
   tbody.innerHTML = '';
 
   if (!schedule || schedule.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="table-placeholder">No data.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="table-placeholder">No data.</td></tr>';
     return;
   }
 
@@ -1568,7 +1724,7 @@ function renderMonthlyTable(schedule, tbody) {
       separatorInserted = true;
       const sep = document.createElement('tr');
       sep.className = 'period-separator';
-      sep.innerHTML = `<td colspan="11">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
+      sep.innerHTML = `<td colspan="12">— Draw Period Ended (Month ${DRAW_MONTHS}) — Repayment Period Begins —</td>`;
       frag.appendChild(sep);
     }
 
@@ -1596,6 +1752,7 @@ function renderMonthlyTable(schedule, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.minPmt)}</td>
       <td>${r.addlContrib > 0 ? fmt(r.addlContrib) : '—'}</td>
+      <td>${r.lumpSum > 0 ? fmt(r.lumpSum) : '—'}</td>
       <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(housingPmt)}</td>
       <td><strong>${fmt(round2(r.totalPmt + r.lumpSum))}</strong></td>
       <td>${fmt(r.principal)}</td>
@@ -1617,6 +1774,7 @@ function renderAnnualTable(annualRows, tbody) {
     <th>Start Balance</th>
     <th>Total Min. Pmts</th>
     <th>Total Addl.</th>
+    <th>Total Lump Sums</th>
     <th title="Fixed Obligations + Min. HELOC Payments + Additional Contributions" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
     <th>Total Paid</th>
     <th>Total Principal</th>
@@ -1633,7 +1791,7 @@ function renderAnnualTable(annualRows, tbody) {
       annualSepInserted = true;
       const sep = document.createElement('tr');
       sep.className = 'period-separator';
-      sep.innerHTML = `<td colspan="11">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
+      sep.innerHTML = `<td colspan="12">— Draw Period Ended (Year ${DRAW_YEAR}) — Repayment Period Begins —</td>`;
       frag.appendChild(sep);
     }
     const tr = document.createElement('tr');
@@ -1645,6 +1803,7 @@ function renderAnnualTable(annualRows, tbody) {
       <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.totalMinPmt)}</td>
       <td>${r.totalAddl > 0 ? fmt(r.totalAddl) : '—'}</td>
+      <td>${r.totalLumpSum > 0 ? fmt(r.totalLumpSum) : '—'}</td>
       <td style="border-left:2px solid rgba(20,184,166,.35);font-weight:700;color:var(--teal)">${fmt(annualHousing)}</td>
       <td><strong>${fmt(round2(r.totalPmt + r.totalLumpSum))}</strong></td>
       <td>${fmt(r.totalPrincipal)}</td>
@@ -1666,6 +1825,7 @@ function restoreMonthlyHeaders() {
     <th>Start Balance</th>
     <th>Min. Payment</th>
     <th>Addl. Contrib.</th>
+    <th>Lump Sum</th>
     <th title="Fixed Obligations + Min. HELOC Payment + Additional Contribution" style="border-left:2px solid rgba(20,184,166,.35)">Housing Total</th>
     <th>Total Payment</th>
     <th>Principal</th>
@@ -1949,7 +2109,7 @@ function showSolvedBadge(field) {
 }
 
 // ── 8c: Forward (no-solve) calculation ──────────
-function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr) {
+function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr) {
   const errs = [];
   if (isNaN(rate)   || rate   <= 0) errs.push('Interest Rate is required and must be > 0.');
   if (isNaN(debt)   || debt   <= 0) errs.push('Debt Amount is required and must be > 0.');
@@ -1959,7 +2119,7 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, start
   const params = {
     balance: debt, annualRate: rate, minPctPerMonth: minPct,
     housingTarget: targetHousingPmt, fixedObligation,
-    contribRules: [], startDateStr
+    contribRules: [], lumpSumSchedule, startDateStr
   };
   const schedule = runAmortization(params);
 
@@ -1980,7 +2140,7 @@ function runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, start
 }
 
 // ── 8d: Bidirectional solver ─────────────────────
-function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr) {
+function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr) {
   const freeVar = getFirstFreeVar();
 
   if (!freeVar) {
@@ -2007,7 +2167,7 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     minPctPerMonth: minPct,
     housingTarget:  targetHousingPmt,
     fixedObligation,
-    contribRules: [], startDateStr
+    contribRules: [], lumpSumSchedule, startDateStr
   };
 
   // Solver bounds and tolerance by free variable
@@ -2156,7 +2316,24 @@ function generateInsights(schedule, params, baseline) {
     });
   }
 
-  // 3 — 50% principal payoff milestone
+  // 3 — Lump sum savings vs no-lump-sum scenario
+  const hasLumpSums = schedule.some(r => r.lumpSum > 0);
+  if (hasLumpSums) {
+    const totalLumpSums = round2(schedule.reduce((s, r) => s + r.lumpSum, 0));
+    const noLsSchedule  = runAmortization({ ...params, lumpSumSchedule: null });
+    const noLsInterest  = noLsSchedule.length ? noLsSchedule[noLsSchedule.length - 1].cumulInterest : totalInterest;
+    const lsSaved       = round2(noLsInterest - totalInterest);
+    const lsMonthsSaved = noLsSchedule.length - payoffMonths;
+    const timeStr = lsMonthsSaved > 0 ? `, paying off ${formatMonths(lsMonthsSaved)} sooner` : '';
+    items.push({
+      type: lsSaved > 0 ? 'success' : 'info',
+      icon: '💰',
+      headline: `${fmtK(totalLumpSums)} in lump sums saves ${fmtK(lsSaved)} in interest${timeStr}`,
+      detail: `Versus same payment schedule without lump sums (${noLsSchedule.length} months, ${fmtK(noLsInterest)} interest)`
+    });
+  }
+
+  // 4 — 50% principal payoff milestone
   const halfBal = principal / 2;
   const halfRow  = schedule.find(r => r.endBal <= halfBal);
   if (halfRow) {
@@ -2270,6 +2447,8 @@ function calculate() {
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
   const targetHousingPmt = parseCurrency(document.getElementById('targetHousingPmt').value) || 0;
   const fixedObligation  = parseCurrency(document.getElementById('fixedObligations').value) || 0;
+  const lumpSumSchedule = computeLsLookup(lsRulesData);
+
   // Determine which output fields are locked → become solve targets
   const targets = [];
 
@@ -2313,10 +2492,10 @@ function calculate() {
   }
 
   if (targets.length === 0) {
-    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr);
+    runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr);
   } else {
     const { type, target } = targets[0];
-    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, startDateStr);
+    runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, lumpSumSchedule, startDateStr);
   }
 }
 
