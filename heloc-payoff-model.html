@@ -1520,10 +1520,21 @@ function confirmLsRule() {
 
   const cadence      = document.getElementById('lsCadence').value;
   const startMonName = document.getElementById('lsStartMonthName').value;
-  const startYear    = parseInt(document.getElementById('lsStartYear').value, 10);
+  let   startYear    = parseInt(document.getElementById('lsStartYear').value, 10);
 
-  if (!startMonName || isNaN(startYear)) {
-    errEl.textContent = 'Start month and year are required.';
+  // Fallback: if year field is blank, use the loan start year
+  if (isNaN(startYear)) {
+    const loanStartStr = document.getElementById('startDate').value;
+    if (loanStartStr) startYear = parseInt(loanStartStr.split('-')[0], 10);
+  }
+
+  if (!startMonName) {
+    errEl.textContent = 'Start month is required.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (isNaN(startYear)) {
+    errEl.textContent = 'Start year could not be determined — set the loan start date first.';
     errEl.style.display = 'block';
     return;
   }
@@ -1682,6 +1693,7 @@ function getLumpSumForMonth(lsRules, monthNum, startDateStr) {
       console.log('[getLumpSumForMonth] monthNum=' + monthNum + ' cadence=' + r.cadence + ' s=' + s + ' (monthNum-s)=' + (monthNum - s) + ' mod=' + (r.cadence === 'annually' ? (monthNum-s)%12 : r.cadence === 'biannually' ? (monthNum-s)%6 : r.cadence === 'quarterly' ? (monthNum-s)%3 : '-') + ' FIRED=' + fired + ' lumpSum=' + (fired ? r.amount : 0));
     }
   }
+  if (window.LS_DEBUG) console.log('[getLumpSumForMonth] monthNum=' + monthNum + ' returning total=' + total);
   return total;
 }
 
