@@ -2371,7 +2371,12 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     }
   } else {
     objFn = x => {
-      const s = runAmortization({ ...baseParams, [paramField]: x });
+      // Lump sums must not reduce the solved housing target — strip them from the
+      // objective so the solver treats them as purely additive on top of housing.
+      const solveParams = freeVar === 'targetHousingPmt'
+        ? { ...baseParams, [paramField]: x, lsRules: [], solverLsRules: [] }
+        : { ...baseParams, [paramField]: x };
+      const s = runAmortization(solveParams);
       if (type === 'months')   return s.length;
       if (type === 'interest') return s.length ? s[s.length - 1].cumulInterest : 0;
     };
