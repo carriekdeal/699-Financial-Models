@@ -1019,6 +1019,10 @@
                   onclick="toggleLock('targetHousingPmt')">🔓</button>
         </div>
 
+        <div id="housing-ls-warn" style="display:none;font-size:11px;color:#f59e0b;margin:2px 0 4px 0;padding:4px 8px;background:rgba(245,158,11,.1);border-radius:4px;border-left:3px solid #f59e0b">
+          Scheduled lump sums are applied on top of this locked amount and may accelerate your payoff.
+        </div>
+
         <!-- Fixed Monthly Obligation -->
         <div class="field-row" id="row-fixedObligations">
           <div class="field-inner">
@@ -1335,6 +1339,13 @@ const lockState = {
   totalInterest: false, payoffMonths: false, payoffDate: false,
 };
 
+function updateHousingLsWarn() {
+  const warn = document.getElementById('housing-ls-warn');
+  if (!warn) return;
+  const show = lockState['targetHousingPmt'] && lsRulesData.some(r => r.mode === 'fixed');
+  warn.style.display = show ? 'block' : 'none';
+}
+
 function toggleLock(field) {
   lockState[field] = !lockState[field];
   const row = document.getElementById('row-' + field);
@@ -1350,6 +1361,7 @@ function toggleLock(field) {
     btn.textContent = '🔓';
     btn.title = 'Unlocked — click to lock';
   }
+  updateHousingLsWarn();
 }
 
 // Single source-of-truth sync for Start Date ↔ Payoff Period ↔ Payoff Date.
@@ -1522,6 +1534,7 @@ function renderLsActiveRules() {
         <button class="rule-remove" title="Remove" onclick="removeLsRule(${r.id})">✕</button>
       </div>`;
   }).join('');
+  updateHousingLsWarn();
 }
 
 // ════════════════════════════════════════════════
@@ -2289,9 +2302,9 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
         );
       } else {
         showError(
-          `Target payoff of <strong>${target} months</strong> exceeds what is necessary. ` +
-          `Even with ${lbl} at its minimum, the loan pays off in <strong>${Math.round(rangeMax)} months</strong>. ` +
-          `Unlock a different field to adjust, or extend the target period.`
+          `Your current inputs already pay off in <strong>${Math.round(rangeMax)} months</strong> — ` +
+          `faster than your locked target of <strong>${target} months</strong>. ` +
+          `Unlock the payoff period to see your accelerated schedule.`
         );
       }
     } else {
