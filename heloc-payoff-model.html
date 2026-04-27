@@ -1092,9 +1092,15 @@
               <option value="quarterly">Quarterly</option>
               <option value="once">One-time</option>
             </select>
-            <input type="number" id="solverLsStart" value="1" min="1" step="1"
-                   title="Month number for first lump sum"
-                   style="width:76px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;">
+          </div>
+          <div style="display:flex;gap:6px;margin-top:5px;" class="ls-month-row">
+            <select id="solverLsStartMonthName" style="flex:2">
+              <option>January</option><option>February</option><option>March</option>
+              <option>April</option><option>May</option><option>June</option>
+              <option>July</option><option>August</option><option>September</option>
+              <option>October</option><option>November</option><option>December</option>
+            </select>
+            <input type="number" id="solverLsStartYear" min="2020" max="2080" placeholder="Year" style="flex:1;min-width:58px">
           </div>
         </div>
 
@@ -1441,6 +1447,9 @@ function syncPayoffFields(source) {
   const m = String(today.getMonth() + 1).padStart(2,'0');
   const d = String(today.getDate()).padStart(2,'0');
   document.getElementById('startDate').value = `${y}-${m}-${d}`;
+  // Pre-populate solver lump sum start month to match loan start
+  document.getElementById('solverLsStartMonthName').value = LS_MON_NAMES[today.getMonth()];
+  document.getElementById('solverLsStartYear').value      = y;
   updateHousingSubtotal();
 })();
 
@@ -2420,6 +2429,7 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     const finalSolverRules = solvedAmt > 0
       ? [{ amount: solvedAmt, cadence, startMonth, interval: 6 }]
       : [];
+    if (window.LS_DEBUG) console.log('[runSolver] finalSolverRules:', JSON.stringify(finalSolverRules), '— fires at months:', (() => { const hits = []; for (let n = 1; n <= 120; n++) { const s = startMonth; if (n < s) continue; let f = false; if (cadence==='once'&&n===s) f=true; else if (cadence==='monthly') f=true; else if (cadence==='annually'&&(n-s)%12===0) f=true; else if (cadence==='biannually'&&(n-s)%6===0) f=true; else if (cadence==='quarterly'&&(n-s)%3===0) f=true; if (f) hits.push(n); } return hits.slice(0,8).join(','); })());
     finalParams = { ...baseParams, solverLsRules: finalSolverRules, solverLsAmount: solvedAmt, solverLsConfig };
   } else {
     finalParams = { ...baseParams, [paramField]: result.value };
@@ -2713,10 +2723,14 @@ function calculate() {
   const userLsRules      = readLumpSumRules();
 
   // Solver lump sum config (used when 'lumpSum' is the free variable)
-  const solverLsAmount   = parseCurrency(document.getElementById('lumpSumAmount').value) || 0;
-  const solverLsCadence  = document.getElementById('solverLsCadence').value;
-  const solverLsStart    = parseInt(document.getElementById('solverLsStart').value, 10) || 1;
-  const solverLsConfig   = { cadence: solverLsCadence, startMonth: solverLsStart };
+  const solverLsAmount        = parseCurrency(document.getElementById('lumpSumAmount').value) || 0;
+  const solverLsCadence       = document.getElementById('solverLsCadence').value;
+  const solverLsStartMonthName = document.getElementById('solverLsStartMonthName').value;
+  const solverLsStartYear      = parseInt(document.getElementById('solverLsStartYear').value, 10);
+  const solverLsStart = (solverLsStartMonthName && !isNaN(solverLsStartYear))
+    ? (monthStrToLoanMonth(`${solverLsStartMonthName} ${solverLsStartYear}`, startDateStr) || 1)
+    : 1;
+  const solverLsConfig = { cadence: solverLsCadence, startMonth: solverLsStart };
 
   // Scheduled lump sums (user-defined rules) are always fixed inputs.
   // The solver lump sum is tracked separately — either locked (fixed amount) or free.
