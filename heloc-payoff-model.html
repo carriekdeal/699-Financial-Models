@@ -1441,6 +1441,9 @@ function syncPayoffFields(source) {
   }
 }
 
+const LS_MON_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let lastFixedObligations = 0;
+
 (function initDate() {
   const today = new Date();
   const y = today.getFullYear();
@@ -1481,7 +1484,6 @@ function addContribRule() {
 }
 
 // ── Lump Sum Rules ───────────────────────────────
-const LS_MON_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 function showLsForm() {
   const startDate = document.getElementById('startDate').value;
@@ -1845,7 +1847,6 @@ function runMinOnlyBaseline(balance, annualRate, minPct) {
 
 let currentView = 'monthly';
 let lastSchedule = null;
-let lastFixedObligations = 0;
 
 function setTableView(view) {
   currentView = view;
