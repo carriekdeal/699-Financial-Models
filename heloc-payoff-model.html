@@ -2144,9 +2144,11 @@ const SOLVE_LABEL = {
 
 function getFirstFreeVar() {
   if (lsRulesData.some(r => r.mode === 'solver')) return 'lumpSum';
+  const hasFixedLs = lsRulesData.some(r => r.mode === 'fixed');
   return SOLVE_PRIORITY.find(f => {
     if (lockState[f]) return false;
-    if (f === 'targetHousingPmt' && !targetHousingWasSolved) {
+    // When fixed lump sums are present, protect a user-typed housing value from solver override
+    if (f === 'targetHousingPmt' && hasFixedLs && !targetHousingWasSolved) {
       const v = parseCurrency(document.getElementById('targetHousingPmt').value);
       if (v > 0) return false;
     }
@@ -2301,10 +2303,12 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
           `Try reducing the Debt Amount, increasing the Interest Rate, or accepting a longer payoff period.`
         );
       } else {
+        const actualMonths = Math.round(rangeMax);
+        const diff = target - actualMonths;
         showError(
-          `Your current inputs already pay off in <strong>${Math.round(rangeMax)} months</strong> — ` +
-          `faster than your locked target of <strong>${target} months</strong>. ` +
-          `Unlock the payoff period to see your accelerated schedule.`
+          `With your current inputs this loan pays off in <strong>${actualMonths} months</strong> — ` +
+          `<strong>${diff} months</strong> ahead of your <strong>${target} months</strong> target. ` +
+          `Unlock Payoff Period to see your accelerated schedule.`
         );
       }
     } else {
