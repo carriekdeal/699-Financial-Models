@@ -2528,6 +2528,9 @@ function calculate() {
   const rate             = parseFloat(document.getElementById('interestRate').value);
   const debt             = parseCurrency(document.getElementById('debtAmount').value);
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
+  if (lsRulesData.length > 0 && document.querySelector('#row-targetHousingPmt .solved-badge')) {
+    document.getElementById('targetHousingPmt').value = '';
+  }
   const targetHousingPmt = parseCurrency(document.getElementById('targetHousingPmt').value) || 0;
   const fixedObligation  = parseCurrency(document.getElementById('fixedObligations').value) || 0;
   const fixedLsRules    = lsRulesData.filter(r => r.mode === 'fixed');
