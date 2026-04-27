@@ -1012,7 +1012,7 @@
               <span class="field-prefix">$</span>
               <input type="text" inputmode="decimal" class="field-input has-prefix" id="targetHousingPmt"
                      placeholder="e.g. 3,500"
-                     oninput="formatCurrencyInput(this); updateHousingSubtotal()">
+                     oninput="formatCurrencyInput(this); updateHousingSubtotal(); targetHousingWasSolved = false;">
             </div>
           </div>
           <button class="lock-btn" id="lock-targetHousingPmt" title="Lock / Unlock"
@@ -1378,6 +1378,7 @@ function syncPayoffFields(source) {
 const LS_MON_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let lastFixedObligations = 0;
 let lsRulesData = [];
+let targetHousingWasSolved = false;
 let lsRuleIdCounter = 0;
 
 (function initDate() {
@@ -2145,6 +2146,7 @@ function applySolvedValue(field, value) {
   if (!el) return;
   el.value = value.toFixed(field === 'minPmt' ? 4 : 2);
   if (['targetHousingPmt', 'debt'].includes(field)) formatCurrencyInput(el);
+  if (field === 'targetHousingPmt') targetHousingWasSolved = true;
   el.style.transition = 'background 0.4s';
   el.style.background = 'rgba(16,185,129,.18)';
   setTimeout(() => { el.style.background = ''; updateHousingSubtotal(); }, 1500);
@@ -2528,8 +2530,9 @@ function calculate() {
   const rate             = parseFloat(document.getElementById('interestRate').value);
   const debt             = parseCurrency(document.getElementById('debtAmount').value);
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
-  if (lsRulesData.length > 0 && document.querySelector('#row-targetHousingPmt .solved-badge')) {
+  if (targetHousingWasSolved && lsRulesData.length > 0) {
     document.getElementById('targetHousingPmt').value = '';
+    targetHousingWasSolved = false;
   }
   const targetHousingPmt = parseCurrency(document.getElementById('targetHousingPmt').value) || 0;
   const fixedObligation  = parseCurrency(document.getElementById('fixedObligations').value) || 0;
