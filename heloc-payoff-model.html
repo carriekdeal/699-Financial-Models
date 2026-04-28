@@ -880,6 +880,10 @@
         <div class="peek-row"><span class="peek-lbl">Target</span><span class="peek-val" id="pk-target">—</span></div>
         <div class="peek-row"><span class="peek-lbl">Fixed</span><span class="peek-val" id="pk-fixed">$2,307</span></div>
       </div>
+      <div class="peek-group">
+        <div class="peek-group-header">Lump Sums</div>
+        <div class="peek-row"><span class="peek-lbl">Active</span><span class="peek-val" id="pk-lumpSums">—</span></div>
+      </div>
 
       <button class="calc-btn" style="margin-top:4px;font-size:12px;padding:9px" onclick="calculate(); syncCollapsedValues()">⚡ Calculate</button>
     </div>
@@ -1071,6 +1075,7 @@
         <p class="section-note">Extra principal payments — one-time or recurring. Applied before interest compounds each month.</p>
 
         <div id="lsActiveRules"></div>
+        <p class="section-note" style="margin-top:6px">Fixed rules apply a set amount. Convert to Solver to let the model find the minimum amount needed to hit your locked payoff target.</p>
 
         <!-- Add rule form (hidden by default) -->
         <div id="lsForm" style="display:none;margin-bottom:8px">
@@ -1233,9 +1238,17 @@
         </div>
 
         <div class="scenario-actions">
-          <button class="btn-sm primary" onclick="saveScenario()">💾 Save as Scenario</button>
+          <button class="btn-sm primary" id="saveScenarioBtn" onclick="saveScenario()">💾 Save as Scenario</button>
           <button class="btn-sm" onclick="clearScenarios()">🗑 Clear All</button>
           <button class="btn-sm" onclick="exportScenarioCSV()">⬇ Export Comparison CSV</button>
+        </div>
+        <div id="scenarioNameRow" style="display:none;margin-top:8px;display:none;gap:6px;align-items:center">
+          <input type="text" id="scenarioNameInput" placeholder="Scenario name…"
+                 style="flex:1;padding:5px 8px;border-radius:5px;border:1px solid var(--border-lt);
+                        background:var(--surface-2);color:var(--text);font-size:12px"
+                 onkeydown="if(event.key==='Enter')confirmSaveScenario();if(event.key==='Escape')cancelSaveScenario()">
+          <button class="btn-sm primary" onclick="confirmSaveScenario()">Save</button>
+          <button class="btn-sm" onclick="cancelSaveScenario()">Cancel</button>
         </div>
 
         <div class="scenario-compare-placeholder" id="scenarioCompare">
@@ -1420,6 +1433,7 @@ function cancelLsForm() {
   document.getElementById('lsForm').style.display = 'none';
   document.getElementById('lsAddBtn').style.display = '';
   document.getElementById('lsAmount').value = '';
+  document.getElementById('lsCadence').value = 'annual';
   document.getElementById('lsStartYear').value = '';
 }
 
@@ -1458,6 +1472,7 @@ function confirmLsRule() {
 function removeLsRule(id) {
   lsRulesData = lsRulesData.filter(r => r.id !== id);
   renderLsActiveRules();
+  updateHousingLsWarn();
 }
 
 function toggleLsMode(id) {
@@ -1476,7 +1491,7 @@ function toggleLsMode(id) {
 function renderLsActiveRules() {
   const container = document.getElementById('lsActiveRules');
   if (!container) return;
-  if (!lsRulesData.length) { container.innerHTML = ''; return; }
+  if (!lsRulesData.length) { container.innerHTML = '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:4px 0">No lump sums added yet.</div>'; return; }
   const CADENCE_LABEL = { once: 'Once', annual: 'Annual', semiannual: 'Semi-annual', quarterly: 'Quarterly', monthly: 'Monthly' };
   container.innerHTML = lsRulesData.map(r => {
     const isSolver  = r.mode === 'solver';
@@ -2693,13 +2708,21 @@ function saveScenario() {
     showError('Maximum of 4 scenarios reached. Delete one before saving another.');
     return;
   }
-
   const defaultName = `Scenario ${scenarios.length + 1}`;
-  const name = prompt('Name this scenario:', defaultName);
-  if (name === null) return;  // cancelled
-  const finalName = name.trim() || defaultName;
+  const inp = document.getElementById('scenarioNameInput');
+  const row = document.getElementById('scenarioNameRow');
+  inp.value = defaultName;
+  row.style.display = 'flex';
+  inp.focus();
+  inp.select();
+}
 
-  // Deep-copy everything so the snapshot is fully independent of live state
+function confirmSaveScenario() {
+  const defaultName = `Scenario ${scenarios.length + 1}`;
+  const inp  = document.getElementById('scenarioNameInput');
+  const finalName = (inp.value || '').trim() || defaultName;
+  document.getElementById('scenarioNameRow').style.display = 'none';
+
   scenarios.push({
     name:     finalName,
     params:   JSON.parse(JSON.stringify(captureCurrentParams())),
@@ -2708,11 +2731,11 @@ function saveScenario() {
   });
 
   renderScenarioPanel();
-
-  // Post-save cleanup: reset all solver-output visual indicators so the
-  // active workspace reflects only live field state going forward.
   document.querySelectorAll('.solved-badge').forEach(el => el.remove());
+}
 
+function cancelSaveScenario() {
+  document.getElementById('scenarioNameRow').style.display = 'none';
 }
 
 // ── Clear all scenarios ──────────────────────────
@@ -2987,6 +3010,8 @@ function syncCollapsedValues() {
     const pk  = document.getElementById(pkId);
     if (inp && pk) pk.textContent = fmt(inp.value);
   });
+  const lsEl = document.getElementById('pk-lumpSums');
+  if (lsEl) lsEl.textContent = lsRulesData.length > 0 ? `${lsRulesData.length} active` : '—';
 }
 
 // ── Amortization table collapse / expand ─────────
