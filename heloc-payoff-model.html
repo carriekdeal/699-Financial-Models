@@ -1402,39 +1402,7 @@ let lsRuleIdCounter = 0;
   updateHousingSubtotal();
 })();
 
-// ── Contribution Change Rules ────────────────────
-let contribRuleCounter = 0;
-
-function addContribRule() {
-  contribRuleCounter++;
-  const id = 'cr-' + contribRuleCounter;
-  const list = document.getElementById('contribRulesList');
-  const div = document.createElement('div');
-  div.className = 'rule-row';
-  div.id = id;
-  div.innerHTML = `
-    <div class="rule-field">
-      <label>Starting Month #</label>
-      <input type="number" placeholder="e.g. 13" min="1" step="1">
-    </div>
-    <div class="rule-field">
-      <label>Amount / Month</label>
-      <div style="position:relative;display:flex;align-items:center;">
-        <span style="position:absolute;left:8px;color:var(--muted);pointer-events:none;font-size:13px;">$</span>
-        <input type="number" placeholder="e.g. 1000" min="0" step="50" style="padding-left:20px;">
-      </div>
-    </div>
-    <button class="rule-remove" title="Remove" onclick="removeRule('${id}')">✕</button>
-  `;
-  list.appendChild(div);
-}
-
 // ── Lump Sum Rules ───────────────────────────────
-
-function removeRule(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-}
 
 function showLsForm() {
   document.getElementById('lsForm').style.display = '';
@@ -1456,21 +1424,22 @@ function cancelLsForm() {
 }
 
 function confirmLsRule() {
+  clearError();
   const amount = parseCurrency(document.getElementById('lsAmount').value);
   if (isNaN(amount) || amount <= 0) {
-    alert('Enter a valid amount greater than $0.');
+    showError('Enter a valid amount greater than $0.');
     return;
   }
   const cadence    = document.getElementById('lsCadence').value;
   const monthIdx   = parseInt(document.getElementById('lsStartMonth').value, 10);
   const year       = parseInt(document.getElementById('lsStartYear').value, 10);
   const startDateStr = document.getElementById('startDate').value;
-  if (!startDateStr) { alert('Set a Plan Start Date first.'); return; }
-  if (isNaN(year)) { alert('Enter a valid 4-digit year.'); return; }
+  if (!startDateStr) { showError('Set a Plan Start Date first.'); return; }
+  if (isNaN(year)) { showError('Enter a valid 4-digit year.'); return; }
   const monthName  = LS_MON_NAMES[monthIdx - 1];
   const startMonth = monthStrToLoanMonth(`${monthName} ${year}`, startDateStr);
   if (!startMonth || startMonth < 1) {
-    alert('Start month must be on or after the plan start date.');
+    showError('Start month must be on or after the plan start date.');
     return;
   }
   lsRuleIdCounter++;
@@ -1541,20 +1510,6 @@ function renderLsActiveRules() {
 // SECTION 2 — INPUT READERS
 // ════════════════════════════════════════════════
 
-function readContribRules() {
-  const rows = document.querySelectorAll('#contribRulesList .rule-row');
-  const rules = [];
-  rows.forEach(row => {
-    const inputs = row.querySelectorAll('input[type="number"]');
-    const startMonth = parseFloat(inputs[0].value);
-    const amount     = parseFloat(inputs[1].value);
-    if (!isNaN(startMonth) && startMonth >= 1 && !isNaN(amount) && amount >= 0) {
-      rules.push({ startMonth: Math.round(startMonth), amount });
-    }
-  });
-  return rules.sort((a, b) => a.startMonth - b.startMonth);
-}
-
 function getContribForMonth(baseContrib, changeRules, monthNum) {
   // Start from base; apply the highest-startMonth rule that has startMonth <= monthNum
   let amount = baseContrib;
@@ -1585,7 +1540,7 @@ function computeLsLookup(rules) {
     if (cadence === 'once') {
       lookup[startMonth] = round2((lookup[startMonth] || 0) + amount);
     } else {
-      const interval = cadence === 'monthly' ? 1 : cadence === 'quarterly' ? 3 : cadence === 'semiannual' ? 6 : 12;
+      const interval = cadence === 'annual' ? 12 : cadence === 'semiannual' ? 6 : cadence === 'quarterly' ? 3 : cadence === 'monthly' ? 1 : 12;
       for (let m = startMonth; m <= MAX_LOAN_MONTHS; m += interval) {
         lookup[m] = round2((lookup[m] || 0) + amount);
       }
@@ -2037,8 +1992,7 @@ function updateSummary(schedule, params, baseline) {
   // Baseline comparison (min-only: interest-only draw → % of balance repayment)
   const baselinePaidOff  = baseline.length > 0 && baseline[baseline.length-1].endBal <= 0.01;
   // Interest comparison: use baseline cumulative interest at the same payoff month for a fair point-in-time comparison
-  const baselineAtPayoff = baseline[Math.min(payoffMonths, baseline.length) - 1];
-  const baselineInterest = baselineAtPayoff ? baselineAtPayoff.cumulInterest : (baseline.length ? baseline[baseline.length-1].cumulInterest : totalInterest);
+  const baselineInterest = baseline.length ? baseline[baseline.length - 1].cumulInterest : totalInterest;
   const interestSaved    = round2(baselineInterest - totalInterest);
   const monthsSaved      = baselinePaidOff ? (baseline.length - payoffMonths) : null;
 
@@ -2339,6 +2293,19 @@ function runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObli
     return;
   }
 
+  // Post-bisect verification: confirm the solved value actually achieves the target
+  const verifiedOutput = objFn(result.value);
+  if (Math.abs(verifiedOutput - target) > tol) {
+    showError(
+      type === 'months'
+        ? `Solver found a value but could not achieve exactly <strong>${target} months</strong> due to a gap in achievable payoff periods. ` +
+          `Try a target of <strong>${Math.round(rangeMin)}</strong> or <strong>${Math.round(rangeMax)}</strong> months instead.`
+        : `Solver found a value but could not achieve the exact interest target due to a gap in achievable values. ` +
+          `The achievable range is <strong>${fmt(rangeMin)}</strong>–<strong>${fmt(rangeMax)}</strong>.`
+    );
+    return;
+  }
+
   // Write solved value back to the UI
   applySolvedValue(freeVar, result.value);
   showSolvedBadge(freeVar);
@@ -2405,10 +2372,7 @@ function generateInsights(schedule, params, baseline) {
 
   // 2 — Impact of additional contributions vs min-only
   const baselinePaidOff = baseline.length > 0 && baseline[baseline.length - 1].endBal <= 0.01;
-  const baselineAtPayoff = baseline[Math.min(payoffMonths, baseline.length) - 1];
-  const baselineInterest = baselineAtPayoff
-    ? baselineAtPayoff.cumulInterest
-    : (baseline.length ? baseline[baseline.length - 1].cumulInterest : totalInterest);
+  const baselineInterest = baseline.length ? baseline[baseline.length - 1].cumulInterest : totalInterest;
   const interestSaved = round2(baselineInterest - totalInterest);
   const monthsSaved   = baselinePaidOff ? (baseline.length - payoffMonths) : null;
   const hasAddl = schedule.some(r => r.addlContrib > 0);
@@ -2554,7 +2518,7 @@ function calculate() {
   const rate             = parseFloat(document.getElementById('interestRate').value);
   const debt             = parseCurrency(document.getElementById('debtAmount').value);
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
-  if (targetHousingWasSolved && lsRulesData.length > 0) {
+  if (targetHousingWasSolved && lsRulesData.some(r => r.mode === 'fixed')) {
     document.getElementById('targetHousingPmt').value = '';
     targetHousingWasSolved = false;
   }
@@ -2665,7 +2629,7 @@ function showError(msg) {
       color:#FCA5A5; padding:10px 14px; font-size:13px; margin-top:10px;
       line-height:1.6;
     `;
-    document.querySelector('.calc-btn').insertAdjacentElement('afterend', el);
+    document.querySelector('.sidebar-content').prepend(el);
   }
   el.innerHTML = '⚠ ' + msg;
   el.style.display = '';
