@@ -841,6 +841,32 @@
   .insight-body { display: flex; flex-direction: column; gap: 1px; }
   .insight-headline { font-weight: 600; font-size: 12px; color: var(--text); }
   .insight-detail   { font-size: 11px; color: var(--muted-lt); }
+  /* ── Panel 2: Home Comparison Analysis ── */
+  .p2-breakeven-card {
+    background: var(--surface-2); border: 1px solid var(--border-lt);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 14px; text-align: center;
+  }
+  .p2-headline { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .p2-submetrics { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .p2-submetric { background: var(--surface-3); border-radius: 6px; padding: 8px 14px; font-size: 12px; min-width: 110px; }
+  .p2-submetric-label { color: var(--muted); display: block; font-size: 10px; margin-bottom: 3px; }
+  .p2-submetric-val   { color: var(--text); font-weight: 600; }
+  .p2-error {
+    background: rgba(239,68,68,.10); border: 1px solid rgba(239,68,68,.3); border-radius: 6px;
+    color: #FCA5A5; padding: 10px 14px; font-size: 13px; margin-top: 10px; line-height: 1.6;
+  }
+  .p2-table-toggle {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px; cursor: pointer;
+    color: var(--text-dim); font-size: 12px; display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 0;
+  }
+  .p2-table-toggle:hover { background: var(--surface-3); }
+  .p2-table-inner { display: none; margin-top: 8px; }
+  .p2-table-inner.expanded { display: block; }
+  .p2-delta-pos { color: var(--green); font-weight: 600; }
+  .p2-delta-neg { color: var(--amber); font-weight: 600; }
+
 </style>
 </head>
 <body>
@@ -1132,6 +1158,145 @@
       </div>
     </div><!-- /Scheduled Lump Sums -->
 
+    <!-- ── Panel 2: Current Home ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">🏠</span> Current Home</div>
+      <div class="card-body">
+        <p class="section-note">Inputs for Path A — Renovate &amp; Stay. Used only by the Home Comparison Analysis panel below.</p>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Today's Appraised Value</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-appraisedValue"
+                     placeholder="e.g. 500,000"
+                     oninput="formatCurrencyInput(this); p2_autoPopulateDownPayment()">
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Est. Post-Renovation Value</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-postRenovValue"
+                     placeholder="e.g. 600,000"
+                     oninput="formatCurrencyInput(this)">
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Annual Appreciation Rate — ITP Atlanta est.</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input" id="p2-appreciationA" value="4.0" min="0" max="20" step="0.1">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Appreciation Ceiling (optional)</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-lotCeiling"
+                     placeholder="e.g. 750,000"
+                     oninput="formatCurrencyInput(this)">
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Selling Costs %</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input" id="p2-sellingCostsA" value="6.0" min="0" max="20" step="0.1">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Panel 2: Alternative Home ── -->
+    <div class="card">
+      <div class="card-header"><span class="icon">🏡</span> Alternative Home</div>
+      <div class="card-body">
+        <p class="section-note">Inputs for Path B — Buy Alternative Now. Used only by the Home Comparison Analysis panel below.</p>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Purchase Price</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-purchasePrice"
+                     placeholder="e.g. 650,000"
+                     oninput="formatCurrencyInput(this)">
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Mortgage Rate %</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input" id="p2-mortgageRate" value="6.75" min="0.1" max="30" step="0.01">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Down Payment (est. from current home proceeds)</span>
+            <div class="field-input-wrap">
+              <span class="field-prefix">$</span>
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-downPayment"
+                     placeholder="e.g. 150,000"
+                     oninput="formatCurrencyInput(this)">
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Loan Term</span>
+            <div class="field-input-wrap">
+              <select class="field-input" id="p2-loanTerm">
+                <option value="30">30 years</option>
+                <option value="20">20 years</option>
+                <option value="15">15 years</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Annual Appreciation Rate — no lot ceiling</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input" id="p2-appreciationB" value="5.0" min="0" max="20" step="0.1">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Selling Costs %</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input" id="p2-sellingCostsB" value="6.0" min="0" max="20" step="0.1">
+              <span class="field-suffix">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Calculate ── -->
     <button class="calc-btn" onclick="calculate(); syncCollapsedValues()">
       ⚡ Calculate Payoff Model
@@ -1329,6 +1494,56 @@
 
       </div>
     </div><!-- /Amortization Table -->
+
+    <!-- ── Panel 2: Home Comparison Analysis ── -->
+    <div class="table-section" id="p2-section">
+      <div class="table-section-header" onclick="p2_toggleSection()">
+        <div class="table-section-title"><span>🏘</span> Home Comparison Analysis</div>
+        <span class="table-toggle-chevron">▶</span>
+      </div>
+      <div class="table-inner" id="p2-sectionInner">
+        <div style="padding:14px">
+          <p class="section-note" style="margin-bottom:12px">
+            Compare <strong>Path A — Renovate &amp; Stay</strong> (pay off HELOC, hold current home) vs
+            <strong>Path B — Buy Alternative Now</strong> (sell &amp; move immediately). Fill in the
+            sidebar cards above, then run the comparison.
+          </p>
+          <button class="calc-btn" style="margin-bottom:10px" onclick="p2_calculate()">⚡ Run Comparison</button>
+          <div id="p2-error" style="display:none" class="p2-error"></div>
+          <div id="p2-results" style="display:none">
+            <div id="p2-breakeven" class="p2-breakeven-card"></div>
+            <div class="chart-wrap" style="margin-bottom:14px">
+              <div class="chart-title">Net Equity — Path A vs Path B</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="p2-chartEquity"></canvas>
+              </div>
+            </div>
+            <button class="p2-table-toggle" onclick="p2_toggleTable()">
+              <span>Year-by-Year Comparison</span><span>▶</span>
+            </button>
+            <div class="p2-table-inner" id="p2-tableInner">
+              <div class="table-wrap" style="margin-top:8px">
+                <table class="sc-table" id="p2-table">
+                  <thead>
+                    <tr>
+                      <th>Year</th>
+                      <th>Path A Home Value</th>
+                      <th>Path A HELOC Bal</th>
+                      <th>Path A Net Equity</th>
+                      <th>Path B Home Value</th>
+                      <th>Path B Mortgage Bal</th>
+                      <th>Path B Net Equity</th>
+                      <th>Delta (A−B)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="p2-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /Panel 2 -->
 
   </main><!-- /right-panel -->
 </div><!-- /app-body -->
@@ -3017,6 +3232,304 @@ function syncCollapsedValues() {
 // ── Amortization table collapse / expand ─────────
 function toggleAmortTable() {
   document.getElementById('amortSection').classList.toggle('expanded');
+}
+
+// ════════════════════════════════════════════════
+// PANEL 2 — HOME COMPARISON ANALYSIS
+// All functions and variables prefixed p2_
+// ════════════════════════════════════════════════
+
+let p2_chartEquity = null;
+
+function p2_showError(msg) {
+  const el = document.getElementById('p2-error');
+  if (!el) return;
+  el.innerHTML = msg;
+  el.style.display = 'block';
+  document.getElementById('p2-results').style.display = 'none';
+}
+
+function p2_clearError() {
+  const el = document.getElementById('p2-error');
+  if (el) { el.textContent = ''; el.style.display = 'none'; }
+}
+
+function p2_toggleSection() {
+  document.getElementById('p2-section').classList.toggle('expanded');
+}
+
+function p2_toggleTable() {
+  document.getElementById('p2-tableInner').classList.toggle('expanded');
+}
+
+function p2_autoPopulateDownPayment() {
+  const appraised     = parseCurrency(document.getElementById('p2-appraisedValue').value) || 0;
+  const sellingCostPct = parseFloat(document.getElementById('p2-sellingCostsA').value) || 6;
+  // Use today's HELOC balance (Path B = sell today)
+  const helocBal = parseCurrency(document.getElementById('debtAmount').value) || 0;
+  const proceeds = Math.max(0, appraised * (1 - sellingCostPct / 100) - helocBal);
+  const dpEl = document.getElementById('p2-downPayment');
+  if (dpEl && proceeds > 0) {
+    dpEl.value = proceeds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+}
+
+function p2_getHeloc(yearIndex) {
+  // yearIndex is 0-based (year 0 = today, year 1 = after 12 months, …)
+  if (lastSchedule && lastSchedule.length) {
+    const monthIdx = Math.min(yearIndex * 12, lastSchedule.length) - 1;
+    return monthIdx < 0 ? (parseCurrency(document.getElementById('debtAmount').value) || 0)
+                        : lastSchedule[monthIdx].endBal;
+  }
+  // Fallback: rough estimate using simple interest-only + principal payments
+  const debt    = parseCurrency(document.getElementById('debtAmount').value) || 0;
+  const rate    = (parseFloat(document.getElementById('interestRate').value) || 0) / 100 / 12;
+  const housing = parseCurrency(document.getElementById('targetHousingPmt').value) || 0;
+  const fixed   = parseCurrency(document.getElementById('fixedObligations').value) || 0;
+  const minPct  = (parseFloat(document.getElementById('minPaymentPct').value) || 1) / 100;
+  let bal = debt;
+  for (let m = 0; m < yearIndex * 12; m++) {
+    const interest = bal * rate;
+    const minPmt   = bal * minPct;
+    const payment  = Math.max(housing - fixed, minPmt);
+    const principal = Math.max(0, payment - interest);
+    bal = Math.max(0, bal - principal);
+    if (bal === 0) break;
+  }
+  return bal;
+}
+
+function p2_calculate() {
+  p2_clearError();
+
+  const appraised      = parseCurrency(document.getElementById('p2-appraisedValue').value);
+  const postRenov      = parseCurrency(document.getElementById('p2-postRenovValue').value);
+  const appreciationA  = parseFloat(document.getElementById('p2-appreciationA').value) || 4.0;
+  const lotCeilingRaw  = parseCurrency(document.getElementById('p2-lotCeiling').value);
+  const lotCeiling     = lotCeilingRaw > 0 ? lotCeilingRaw : Infinity;
+  const sellingCostAPct = parseFloat(document.getElementById('p2-sellingCostsA').value) || 6.0;
+
+  const purchasePrice  = parseCurrency(document.getElementById('p2-purchasePrice').value);
+  const mortgageRate   = parseFloat(document.getElementById('p2-mortgageRate').value) || 6.75;
+  const downPayment    = parseCurrency(document.getElementById('p2-downPayment').value);
+  const loanTermYrs    = parseInt(document.getElementById('p2-loanTerm').value) || 30;
+  const appreciationB  = parseFloat(document.getElementById('p2-appreciationB').value) || 5.0;
+  const sellingCostBPct = parseFloat(document.getElementById('p2-sellingCostsB').value) || 6.0;
+
+  if (!appraised || appraised <= 0) {
+    p2_showError("Enter today's appraised value for the current home (Path A).");
+    return;
+  }
+  if (!purchasePrice || purchasePrice <= 0) {
+    p2_showError('Enter the purchase price for the alternative home (Path B).');
+    return;
+  }
+  if (downPayment < 0) {
+    p2_showError('Down payment cannot be negative.');
+    return;
+  }
+  if (downPayment >= purchasePrice) {
+    p2_showError('Down payment must be less than the purchase price.');
+    return;
+  }
+
+  const baseA  = postRenov > 0 ? postRenov : appraised;
+  const rateA  = appreciationA / 100;
+  const rateB  = appreciationB / 100;
+  const loanB  = purchasePrice - downPayment;
+  const rMo    = (mortgageRate / 100) / 12;
+  const nPmts  = loanTermYrs * 12;
+  // Standard mortgage payment: P * r(1+r)^n / ((1+r)^n - 1)
+  const mortgagePmt = loanB * rMo * Math.pow(1 + rMo, nPmts) / (Math.pow(1 + rMo, nPmts) - 1);
+
+  const YEARS = 30;
+  const pathA = [];
+  const pathB = [];
+
+  let homeValA = baseA;
+  let mortBalB = loanB;
+  let homeValB = purchasePrice;
+
+  for (let y = 1; y <= YEARS; y++) {
+    // Path A: lotCeiling-capped appreciation on post-reno base
+    homeValA = Math.min(homeValA * (1 + rateA), lotCeiling);
+    const helocBal   = p2_getHeloc(y);
+    const sellCostA  = homeValA * sellingCostAPct / 100;
+    const netEquityA = homeValA - helocBal - sellCostA;
+
+    // Path B: standard appreciation + mortgage paydown
+    homeValB = homeValB * (1 + rateB);
+    const monthsElapsed = Math.min(y * 12, nPmts);
+    for (let m = (y - 1) * 12; m < monthsElapsed; m++) {
+      const interest = mortBalB * rMo;
+      const principal = mortgagePmt - interest;
+      mortBalB = Math.max(0, mortBalB - principal);
+    }
+    const sellCostB  = homeValB * sellingCostBPct / 100;
+    const netEquityB = homeValB - mortBalB - sellCostB;
+
+    pathA.push({ year: y, homeVal: homeValA, helocBal, netEquity: netEquityA });
+    pathB.push({ year: y, homeVal: homeValB, mortBal: mortBalB, netEquity: netEquityB });
+  }
+
+  // Find break-even: first year Path A net equity >= Path B net equity
+  let breakEvenYear = null;
+  for (let i = 0; i < pathA.length; i++) {
+    if (pathA[i].netEquity >= pathB[i].netEquity) { breakEvenYear = pathA[i].year; break; }
+  }
+
+  document.getElementById('p2-results').style.display = 'block';
+  p2_renderBreakeven(pathA, pathB, breakEvenYear, downPayment, purchasePrice);
+  p2_renderChart(pathA, pathB, breakEvenYear);
+  p2_renderTable(pathA, pathB);
+
+  // Auto-expand the section if collapsed
+  if (!document.getElementById('p2-section').classList.contains('expanded')) {
+    document.getElementById('p2-section').classList.add('expanded');
+  }
+}
+
+function p2_renderBreakeven(pathA, pathB, breakEvenYear, downPayment, purchasePrice) {
+  const el = document.getElementById('p2-breakeven');
+  if (!el) return;
+  const fmt = v => '$' + Math.round(v).toLocaleString('en-US');
+  const lastA = pathA[pathA.length - 1];
+  const lastB = pathB[pathB.length - 1];
+  const delta30 = lastA.netEquity - lastB.netEquity;
+  const deltaSign = delta30 >= 0 ? '+' : '';
+
+  let headline, subtext;
+  if (breakEvenYear === null) {
+    headline = `Path B leads through Year ${pathA.length}`;
+    subtext  = 'Buying the alternative home builds more net equity over the full projection period.';
+  } else if (breakEvenYear === 1) {
+    headline = 'Path A leads from Year 1';
+    subtext  = 'Renovating and staying builds more net equity immediately.';
+  } else {
+    headline = `Break-even at Year ${breakEvenYear}`;
+    subtext  = `After Year ${breakEvenYear}, Path A (renovate &amp; stay) surpasses Path B in net equity.`;
+  }
+
+  el.innerHTML = `
+    <div class="p2-headline">${headline}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${subtext}</div>
+    <div class="p2-submetrics">
+      <div class="p2-submetric">
+        <span class="p2-submetric-label">Path A Equity (Yr ${pathA.length})</span>
+        <span class="p2-submetric-val">${fmt(lastA.netEquity)}</span>
+      </div>
+      <div class="p2-submetric">
+        <span class="p2-submetric-label">Path B Equity (Yr ${pathB.length})</span>
+        <span class="p2-submetric-val">${fmt(lastB.netEquity)}</span>
+      </div>
+      <div class="p2-submetric">
+        <span class="p2-submetric-label">30-Yr Delta (A−B)</span>
+        <span class="p2-submetric-val" style="color:${delta30 >= 0 ? 'var(--green)' : 'var(--amber)'}">${deltaSign}${fmt(delta30)}</span>
+      </div>
+      <div class="p2-submetric">
+        <span class="p2-submetric-label">Path B Down Payment</span>
+        <span class="p2-submetric-val">${fmt(downPayment)}</span>
+      </div>
+    </div>`;
+}
+
+function p2_renderChart(pathA, pathB, breakEvenYear) {
+  const labels  = pathA.map(r => `Yr ${r.year}`);
+  const dataA   = pathA.map(r => Math.round(r.netEquity));
+  const dataB   = pathB.map(r => Math.round(r.netEquity));
+
+  const gridColor    = 'rgba(255,255,255,0.06)';
+  const tickColor    = '#64748B';
+  const tooltipStyle = {
+    backgroundColor: '#1E2130',
+    titleColor: '#E2E8F0',
+    bodyColor: '#94A3B8',
+    borderColor: '#2A2D3E',
+    borderWidth: 1,
+    padding: 10,
+    cornerRadius: 6,
+  };
+  const axisStyle = {
+    ticks: { color: tickColor, font: { size: 10 } },
+    grid: { color: gridColor }
+  };
+
+  if (p2_chartEquity) p2_chartEquity.destroy();
+  p2_chartEquity = new Chart(document.getElementById('p2-chartEquity'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Path A — Renovate & Stay',
+          data: dataA,
+          borderColor: '#6366F1',
+          backgroundColor: 'rgba(99,102,241,0.10)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: 'Path B — Buy Alternative',
+          data: dataB,
+          borderColor: '#F59E0B',
+          backgroundColor: 'rgba(245,158,11,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          labels: { color: '#94A3B8', font: { size: 11 }, boxWidth: 16 }
+        },
+        tooltip: {
+          ...tooltipStyle,
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + fmtTooltip(ctx.parsed.y)
+          }
+        },
+        ...(breakEvenYear ? {
+          annotation: undefined  // annotation plugin not loaded; handled via dataset
+        } : {})
+      },
+      scales: {
+        x: { ...axisStyle, ticks: { ...axisStyle.ticks, maxTicksLimit: 15 } },
+        y: {
+          ...axisStyle,
+          ticks: { ...axisStyle.ticks, callback: v => '$' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v) }
+        }
+      }
+    }
+  });
+}
+
+function p2_renderTable(pathA, pathB) {
+  const tbody = document.getElementById('p2-tbody');
+  if (!tbody) return;
+  const fmt = v => '$' + Math.round(v).toLocaleString('en-US');
+  tbody.innerHTML = pathA.map((a, i) => {
+    const b = pathB[i];
+    const delta = a.netEquity - b.netEquity;
+    const deltaClass = delta >= 0 ? 'p2-delta-pos' : 'p2-delta-neg';
+    const deltaSign  = delta >= 0 ? '+' : '';
+    return `<tr>
+      <td>${a.year}</td>
+      <td>${fmt(a.homeVal)}</td>
+      <td>${fmt(a.helocBal)}</td>
+      <td>${fmt(a.netEquity)}</td>
+      <td>${fmt(b.homeVal)}</td>
+      <td>${fmt(b.mortBal)}</td>
+      <td>${fmt(b.netEquity)}</td>
+      <td class="${deltaClass}">${deltaSign}${fmt(delta)}</td>
+    </tr>`;
+  }).join('');
 }
 </script>
 
