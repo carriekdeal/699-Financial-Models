@@ -1171,7 +1171,7 @@
               <span class="field-prefix">$</span>
               <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-appraisedValue"
                      placeholder="e.g. 500,000"
-                     oninput="formatCurrencyInput(this); p2_autoPopulateDownPayment()">
+                     oninput="formatCurrencyInput(this)">
             </div>
           </div>
         </div>
@@ -1252,12 +1252,27 @@
 
         <div class="field-row">
           <div class="field-inner">
-            <span class="field-label">Down Payment (est. from current home proceeds)</span>
-            <div class="field-input-wrap">
+            <span class="field-label">Down Payment</span>
+            <div style="display:flex;gap:0;margin-bottom:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+              <button id="p2-dpBtnAmt" onclick="p2_dpToggle('amt')"
+                      style="flex:1;padding:5px 0;font-size:11px;border:none;cursor:pointer;background:var(--accent);color:#fff">
+                Dollar Amount
+              </button>
+              <button id="p2-dpBtnPct" onclick="p2_dpToggle('pct')"
+                      style="flex:1;padding:5px 0;font-size:11px;border:none;cursor:pointer;background:var(--surface-3);color:var(--text-dim)">
+                % of Price
+              </button>
+            </div>
+            <div id="p2-dpAmtWrap" class="field-input-wrap">
               <span class="field-prefix">$</span>
-              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-downPayment"
+              <input type="text" inputmode="decimal" class="field-input has-prefix" id="p2-downPaymentAmt"
                      placeholder="e.g. 150,000"
                      oninput="formatCurrencyInput(this)">
+            </div>
+            <div id="p2-dpPctWrap" class="field-input-wrap" style="display:none">
+              <input type="number" class="field-input" id="p2-downPaymentPct"
+                     placeholder="e.g. 20" min="0.1" max="99" step="0.1">
+              <span class="field-suffix">%</span>
             </div>
           </div>
         </div>
@@ -1292,6 +1307,17 @@
               <input type="number" class="field-input" id="p2-sellingCostsB" value="6.0" min="0" max="20" step="0.1">
               <span class="field-suffix">%</span>
             </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-inner">
+            <span class="field-label">Buyer Closing Costs %</span>
+            <div class="field-input-wrap">
+              <input type="number" class="field-input" id="p2-closingCosts" value="2.5" min="0" max="10" step="0.1">
+              <span class="field-suffix">%</span>
+            </div>
+            <p class="section-note" style="margin-top:4px">Includes title, lender fees, and buyer agent costs</p>
           </div>
         </div>
       </div>
@@ -3262,16 +3288,14 @@ function p2_toggleTable() {
   document.getElementById('p2-tableInner').classList.toggle('expanded');
 }
 
-function p2_autoPopulateDownPayment() {
-  const appraised     = parseCurrency(document.getElementById('p2-appraisedValue').value) || 0;
-  const sellingCostPct = parseFloat(document.getElementById('p2-sellingCostsA').value) || 6;
-  // Use today's HELOC balance (Path B = sell today)
-  const helocBal = parseCurrency(document.getElementById('debtAmount').value) || 0;
-  const proceeds = Math.max(0, appraised * (1 - sellingCostPct / 100) - helocBal);
-  const dpEl = document.getElementById('p2-downPayment');
-  if (dpEl && proceeds > 0) {
-    dpEl.value = proceeds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+function p2_dpToggle(mode) {
+  const isAmt = mode === 'amt';
+  document.getElementById('p2-dpAmtWrap').style.display = isAmt ? '' : 'none';
+  document.getElementById('p2-dpPctWrap').style.display = isAmt ? 'none' : '';
+  document.getElementById('p2-dpBtnAmt').style.background = isAmt ? 'var(--accent)' : 'var(--surface-3)';
+  document.getElementById('p2-dpBtnAmt').style.color      = isAmt ? '#fff' : 'var(--text-dim)';
+  document.getElementById('p2-dpBtnPct').style.background = isAmt ? 'var(--surface-3)' : 'var(--accent)';
+  document.getElementById('p2-dpBtnPct').style.color      = isAmt ? 'var(--text-dim)' : '#fff';
 }
 
 function p2_getHeloc(yearIndex) {
@@ -3309,12 +3333,25 @@ function p2_calculate() {
   const lotCeiling     = lotCeilingRaw > 0 ? lotCeilingRaw : Infinity;
   const sellingCostAPct = parseFloat(document.getElementById('p2-sellingCostsA').value) || 6.0;
 
-  const purchasePrice  = parseCurrency(document.getElementById('p2-purchasePrice').value);
-  const mortgageRate   = parseFloat(document.getElementById('p2-mortgageRate').value) || 6.75;
-  const downPayment    = parseCurrency(document.getElementById('p2-downPayment').value);
-  const loanTermYrs    = parseInt(document.getElementById('p2-loanTerm').value) || 30;
-  const appreciationB  = parseFloat(document.getElementById('p2-appreciationB').value) || 5.0;
+  const purchasePrice   = parseCurrency(document.getElementById('p2-purchasePrice').value);
+  const mortgageRate    = parseFloat(document.getElementById('p2-mortgageRate').value) || 6.75;
+  const loanTermYrs     = parseInt(document.getElementById('p2-loanTerm').value) || 30;
+  const appreciationB   = parseFloat(document.getElementById('p2-appreciationB').value) || 5.0;
   const sellingCostBPct = parseFloat(document.getElementById('p2-sellingCostsB').value) || 6.0;
+  const closingCostsPct = parseFloat(document.getElementById('p2-closingCosts').value) || 2.5;
+
+  const dpIsPct = document.getElementById('p2-dpPctWrap').style.display !== 'none';
+  let downPayment;
+  if (dpIsPct) {
+    const pct = parseFloat(document.getElementById('p2-downPaymentPct').value);
+    if (!purchasePrice || purchasePrice <= 0) {
+      p2_showError('Enter purchase price before using percentage down payment.');
+      return;
+    }
+    downPayment = purchasePrice * (pct || 0) / 100;
+  } else {
+    downPayment = parseCurrency(document.getElementById('p2-downPaymentAmt').value);
+  }
 
   if (!appraised || appraised <= 0) {
     p2_showError("Enter today's appraised value for the current home (Path A).");
@@ -3324,14 +3361,16 @@ function p2_calculate() {
     p2_showError('Enter the purchase price for the alternative home (Path B).');
     return;
   }
-  if (downPayment < 0) {
-    p2_showError('Down payment cannot be negative.');
+  if (!downPayment || downPayment <= 0) {
+    p2_showError('Down payment must be greater than 0.');
     return;
   }
   if (downPayment >= purchasePrice) {
     p2_showError('Down payment must be less than the purchase price.');
     return;
   }
+
+  const closingCostsSunk = purchasePrice * closingCostsPct / 100;
 
   const baseA  = postRenov > 0 ? postRenov : appraised;
   const rateA  = appreciationA / 100;
@@ -3366,7 +3405,7 @@ function p2_calculate() {
       mortBalB = Math.max(0, mortBalB - principal);
     }
     const sellCostB  = homeValB * sellingCostBPct / 100;
-    const netEquityB = homeValB - mortBalB - sellCostB;
+    const netEquityB = homeValB - mortBalB - sellCostB - closingCostsSunk;
 
     pathA.push({ year: y, homeVal: homeValA, helocBal, netEquity: netEquityA });
     pathB.push({ year: y, homeVal: homeValB, mortBal: mortBalB, netEquity: netEquityB });
