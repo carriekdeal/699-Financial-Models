@@ -1868,6 +1868,7 @@ function runAmortization(params) {
     // Lump sum applied at start of month — before interest accrues on this period's balance.
     // startBal reflects the balance the borrower carries into this period after the lump sum credit.
     const lumpSum = lumpSumSchedule ? round2(lumpSumSchedule[n] || 0) : 0;
+    const preLumpSumBal = bal;
     if (lumpSum > 0) bal = Math.max(0, round2(bal - lumpSum));
 
     if (bal <= 0.005) {
@@ -1885,7 +1886,7 @@ function runAmortization(params) {
     const startBal = bal;
 
     const interest = round2(startBal * monthlyRate);
-    const minPmt   = round2(startBal * minPctPerMonth / 100);
+    const minPmt   = round2(preLumpSumBal * minPctPerMonth / 100);
     const addl = housingTarget > 0
       ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
       : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
