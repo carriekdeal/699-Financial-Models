@@ -2366,11 +2366,10 @@ const SOLVE_LABEL = {
 
 function getFirstFreeVar() {
   if (lsRulesData.some(r => r.mode === 'solver')) return 'lumpSum';
-  const hasFixedLs = lsRulesData.some(r => r.mode === 'fixed');
   return SOLVE_PRIORITY.find(f => {
     if (lockState[f]) return false;
-    // When fixed lump sums are present, protect a user-typed housing value from solver override
-    if (f === 'targetHousingPmt' && hasFixedLs && !targetHousingWasSolved) {
+    // Protect any user-typed housing value from solver override
+    if (f === 'targetHousingPmt' && !targetHousingWasSolved) {
       const v = parseCurrency(document.getElementById('targetHousingPmt').value);
       if (v > 0) return false;
     }
@@ -2786,7 +2785,7 @@ function calculate() {
   const rate             = parseFloat(document.getElementById('interestRate').value);
   const debt             = parseCurrency(document.getElementById('debtAmount').value);
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
-  if (targetHousingWasSolved && lsRulesData.some(r => r.mode === 'fixed')) {
+  if (targetHousingWasSolved) {
     document.getElementById('targetHousingPmt').value = '';
     targetHousingWasSolved = false;
   }
