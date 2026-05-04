@@ -2369,8 +2369,7 @@ function getFirstFreeVar() {
   if (lsRulesData.some(r => r.mode === 'solver')) return 'lumpSum';
   return SOLVE_PRIORITY.find(f => {
     if (lockState[f]) return false;
-    // Protect any user-typed housing value from solver override
-    if (f === 'targetHousingPmt' && !targetHousingWasSolved) {
+    if (f === 'targetHousingPmt') {
       const v = parseCurrency(document.getElementById('targetHousingPmt').value);
       if (v > 0) return false;
     }
@@ -2786,7 +2785,7 @@ function calculate() {
   const rate             = parseFloat(document.getElementById('interestRate').value);
   const debt             = parseCurrency(document.getElementById('debtAmount').value);
   const minPct           = parseFloat(document.getElementById('minPaymentPct').value);
-  if (targetHousingWasSolved) {
+  if (targetHousingWasSolved && !lockState['payoffMonths'] && !lockState['payoffDate'] && !lockState['totalInterest']) {
     document.getElementById('targetHousingPmt').value = '';
     targetHousingWasSolved = false;
   }
