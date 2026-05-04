@@ -3318,8 +3318,6 @@ function p2_setTableView(view) {
 
 function p2_calculate() {
   p2_clearError();
-  p2_lastSchedule = null;
-  cmp_updateRunBtn();
 
   const purchasePrice = parseCurrency(document.getElementById('p2-purchasePrice').value);
   const mortgageRate  = parseFloat(document.getElementById('p2-mortgageRate').value) || 6.75;
@@ -3351,6 +3349,10 @@ function p2_calculate() {
     p2_showError('Down payment must be less than the purchase price.');
     return;
   }
+
+  // All validation passed — safe to reset prior schedule
+  p2_lastSchedule = null;
+  cmp_updateRunBtn();
 
   const loanAmt    = purchasePrice - downPayment;
   const rMo        = (mortgageRate / 100) / 12;
@@ -3431,7 +3433,7 @@ function p2_renderAmortTable(schedule) {
     const annualMap = {};
     for (const r of schedule) {
       const yr = Math.ceil(r.month / 12);
-      if (!annualMap[yr]) annualMap[yr] = { year: yr, payment: 0, principal: 0, interest: 0, endBal: 0, cumulInt: 0 };
+      if (!annualMap[yr]) annualMap[yr] = { year: yr, startBal: r.startBal, startDate: r.date, payment: 0, principal: 0, interest: 0, endBal: 0, cumulInt: 0 };
       annualMap[yr].payment   += r.payment;
       annualMap[yr].principal += r.principal;
       annualMap[yr].interest  += r.interest;
@@ -3440,8 +3442,8 @@ function p2_renderAmortTable(schedule) {
     }
     tbody.innerHTML = Object.values(annualMap).map(r => `<tr>
       <td style="text-align:left">Year ${r.year}</td>
-      <td>—</td>
-      <td>—</td>
+      <td>${r.startDate}</td>
+      <td>${fmt(r.startBal)}</td>
       <td>${fmt(r.payment)}</td>
       <td>${fmt(r.principal)}</td>
       <td>${fmt(r.interest)}</td>
@@ -3560,7 +3562,7 @@ function cmp_calculate() {
     if (renovRows[i].netEquity >= buyRows[i].netEquity) { crossoverYear = renovRows[i].year; break; }
   }
 
-  cmp_renderHeadline(renovWins, savings, compYears);
+  cmp_renderHeadline(crossoverYear, renovRows, buyRows);
   cmp_renderSnapshot(p1TotalInt, p1TotalCost, p2TotalInt, p2TotalCost,
                      lastSchedule[0].totalPmt || 0, p2_monthlyPmt,
                      lastSchedule[lastSchedule.length - 1].date,
@@ -3571,14 +3573,21 @@ function cmp_calculate() {
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function cmp_renderHeadline(renovWins, savings, years) {
+function cmp_renderHeadline(crossoverYear, renovRows, buyRows) {
   const el = document.getElementById('cmp-headline');
   const fmt = v => '$' + Math.round(v).toLocaleString('en-US');
-  const winner = renovWins ? 'Renovating' : 'Buying new';
-  const color  = renovWins ? 'var(--green)' : 'var(--amber)';
+  const year    = crossoverYear !== null ? crossoverYear : 30;
+  const idx     = year - 1;
+  const delta   = Math.abs(renovRows[idx].netEquity - buyRows[idx].netEquity);
+  const renovLeads = renovRows[idx].netEquity >= buyRows[idx].netEquity;
+  const winner  = renovLeads ? 'Renovating' : 'Buying new';
+  const color   = renovLeads ? 'var(--green)' : 'var(--amber)';
+  const subtext = crossoverYear !== null
+    ? `net equity advantage at the crossover point (Year ${year})`
+    : `net equity advantage at Year 30 — ${winner} leads through the full 30-year projection`;
   el.innerHTML = `
-    <div class="cmp-headline-val" style="color:${color}">${winner} saves you ${fmt(savings)}</div>
-    <div class="cmp-headline-sub">in total cost over the ${years}-year comparison period</div>`;
+    <div class="cmp-headline-val" style="color:${color}">${winner} leaves you ${fmt(delta)} wealthier at Year ${year}</div>
+    <div class="cmp-headline-sub">${subtext}</div>`;
 }
 
 function cmp_renderSnapshot(p1TotalInt, p1TotalCost, p2TotalInt, p2TotalCost,
