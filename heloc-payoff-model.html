@@ -2844,6 +2844,14 @@ function calculate() {
   if (targets.length === 0) {
     runForward(rate, debt, minPct, targetHousingPmt, fixedObligation, forwardLsSchedule, startDateStr);
   } else {
+    if (targetHousingPmt > 0 && fixedLsRules.length > 0 && !targetHousingWasSolved) {
+      showError(
+        'Cannot lock Payoff Period when both a housing target and scheduled lump sums are set. ' +
+        'The lump sums accelerate payoff independently — unlock Payoff Period to see your actual payoff date, ' +
+        'or remove the lump sums to solve for a fixed payoff target.'
+      );
+      return;
+    }
     const { type, target } = targets[0];
     runSolver(type, target, rate, debt, minPct, targetHousingPmt, fixedObligation, fixedLsSchedule, solverLsRule, startDateStr);
   }
