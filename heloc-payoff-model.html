@@ -1865,16 +1865,18 @@ function runAmortization(params) {
 
     const inRepayment = n > DRAW_MONTHS;
 
-    // Lump sum applied at start of month — before interest accrues on this period's balance.
-    // startBal reflects the balance the borrower carries into this period after the lump sum credit.
-    const lumpSum = lumpSumSchedule ? round2(lumpSumSchedule[n] || 0) : 0;
+    // Lump sum applied at start of month — before interest accrues.
+    // preLumpSumBal is the true start-of-month balance (= prev row's endBal).
+    // balAfterLs is what the borrower carries for interest accrual this period.
+    const scheduledLumpSum = lumpSumSchedule ? round2(lumpSumSchedule[n] || 0) : 0;
     const preLumpSumBal = bal;
+    const lumpSum = Math.min(scheduledLumpSum, preLumpSumBal);
     if (lumpSum > 0) bal = Math.max(0, round2(bal - lumpSum));
 
     if (bal <= 0.005) {
       schedule.push({
         monthNum: n, date: monthNumToDate(startDateStr, n),
-        startBal: 0, minPmt: 0, addlContrib: 0, lumpSum,
+        startBal: preLumpSumBal, minPmt: 0, addlContrib: 0, lumpSum,
         totalPmt: 0, principal: 0, interest: 0, endBal: 0, cumulInterest,
         contribChanged: false, hasLumpSum: true,
         period: inRepayment ? 'repayment' : 'draw',
@@ -1883,20 +1885,20 @@ function runAmortization(params) {
       break;
     }
 
-    const startBal = bal;
+    const balAfterLs = bal;
 
-    const interest = round2(startBal * monthlyRate);
+    const interest = round2(balAfterLs * monthlyRate);
     const minPmt   = round2(preLumpSumBal * minPctPerMonth / 100);
     const addl = housingTarget > 0
       ? Math.max(0, round2(housingTarget - (fixedObligation || 0) - minPmt))
       : round2(getContribForMonth(baseContrib || 0, contribRules || [], n));
 
     let totalPmt = minPmt + addl;
-    const maxPmt = round2(startBal + interest);
+    const maxPmt = round2(balAfterLs + interest);
     if (totalPmt > maxPmt) totalPmt = round2(maxPmt);
 
     const principal = round2(totalPmt - interest);
-    const endBal    = Math.max(0, round2(startBal - principal));
+    const endBal    = Math.max(0, round2(balAfterLs - principal));
     cumulInterest   = round2(cumulInterest + interest);
 
     const contribChanged = (n > 1 && addl !== prevContrib);
@@ -1905,7 +1907,7 @@ function runAmortization(params) {
     schedule.push({
       monthNum: n,
       date:     monthNumToDate(startDateStr, n),
-      startBal,
+      startBal: preLumpSumBal,
       minPmt,
       addlContrib: addl,
       lumpSum,
